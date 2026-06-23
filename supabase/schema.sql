@@ -458,6 +458,7 @@ $$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
 
 -- Chats policies
 CREATE POLICY "Participants can view chats" ON chats FOR SELECT USING (
+  auth.uid() = created_by OR
   public.is_chat_participant(id, auth.uid())
 );
 CREATE POLICY "Users can create chats" ON chats FOR INSERT WITH CHECK (auth.uid() = created_by);
@@ -466,7 +467,10 @@ CREATE POLICY "Users can create chats" ON chats FOR INSERT WITH CHECK (auth.uid(
 CREATE POLICY "Participants can view members" ON chat_participants FOR SELECT USING (
   public.is_chat_participant(chat_id, auth.uid())
 );
-CREATE POLICY "Users can join chats" ON chat_participants FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can join chats" ON chat_participants FOR INSERT WITH CHECK (
+  auth.uid() = user_id OR
+  EXISTS (SELECT 1 FROM public.chats WHERE id = chat_id AND created_by = auth.uid())
+);
 
 -- Messages policies
 CREATE POLICY "Chat participants can view messages" ON messages FOR SELECT USING (
