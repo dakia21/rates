@@ -447,25 +447,34 @@ CREATE POLICY "Anyone can view follows" ON follows FOR SELECT USING (true);
 CREATE POLICY "Users can follow" ON follows FOR INSERT WITH CHECK (auth.uid() = follower_id);
 CREATE POLICY "Users can unfollow" ON follows FOR DELETE USING (auth.uid() = follower_id);
 
+-- Helper function to check chat participation (bypasses RLS recursion)
+CREATE OR REPLACE FUNCTION public.is_chat_participant(chat_uuid UUID, user_uuid UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.chat_participants 
+    WHERE chat_id = chat_uuid AND user_id = user_uuid
+  );
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
+
 -- Chats policies
 CREATE POLICY "Participants can view chats" ON chats FOR SELECT USING (
-  EXISTS (SELECT 1 FROM chat_participants WHERE chat_id = id AND user_id = auth.uid())
+  public.is_chat_participant(id, auth.uid())
 );
 CREATE POLICY "Users can create chats" ON chats FOR INSERT WITH CHECK (auth.uid() = created_by);
 
 -- Chat participants policies
 CREATE POLICY "Participants can view members" ON chat_participants FOR SELECT USING (
-  EXISTS (SELECT 1 FROM chat_participants cp WHERE cp.chat_id = chat_participants.chat_id AND cp.user_id = auth.uid())
+  public.is_chat_participant(chat_id, auth.uid())
 );
 CREATE POLICY "Users can join chats" ON chat_participants FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Messages policies
 CREATE POLICY "Chat participants can view messages" ON messages FOR SELECT USING (
-  EXISTS (SELECT 1 FROM chat_participants WHERE chat_id = messages.chat_id AND user_id = auth.uid())
+  public.is_chat_participant(chat_id, auth.uid())
 );
 CREATE POLICY "Chat participants can send messages" ON messages FOR INSERT WITH CHECK (
   auth.uid() = sender_id AND
-  EXISTS (SELECT 1 FROM chat_participants WHERE chat_id = messages.chat_id AND user_id = auth.uid())
+  public.is_chat_participant(chat_id, auth.uid())
 );
 CREATE POLICY "Users can update own messages" ON messages FOR UPDATE USING (auth.uid() = sender_id);
 CREATE POLICY "Users can delete own messages" ON messages FOR DELETE USING (auth.uid() = sender_id);
