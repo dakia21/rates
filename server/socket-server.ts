@@ -3,7 +3,7 @@ import { Server } from "socket.io";
 import { verifySocketAuth } from "../src/lib/auth/jwt";
 import { createClient } from "@supabase/supabase-js";
 
-const PORT = parseInt(process.env.SOCKET_PORT || "3001");
+const PORT = parseInt(process.env.PORT || process.env.SOCKET_PORT || "3001");
 
 const httpServer = createServer();
 const io = new Server(httpServer, {
