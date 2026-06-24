@@ -12,9 +12,11 @@ import { formatNumber } from "@/lib/utils/format";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/components/ui/toast";
 import type { Group, GroupMember } from "@/types";
+import { useRouter } from "next/navigation";
 
 export default function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [group, setGroup] = useState<Group & { members: GroupMember[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const { profile } = useAuth();
@@ -57,6 +59,24 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
       const refresh = await fetch(`/api/groups/${id}`);
       const refreshData = await refresh.json();
       if (refreshData.success) setGroup(refreshData.data);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!confirm("Вы уверены, что хотите удалить эту группу? Это действие нельзя отменить.")) return;
+    try {
+      const res = await fetch(`/api/groups/${id}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast("Группа успешно удалена", "success");
+        router.push("/groups");
+      } else {
+        toast(data.error || "Ошибка при удалении группы", "error");
+      }
+    } catch (err) {
+      toast("Не удалось удалить группу", "error");
     }
   };
 
@@ -107,7 +127,11 @@ export default function GroupPage({ params }: { params: Promise<{ id: string }> 
                       </Button>
                     </Link>
                   )}
-                  {group.user_role !== "owner" && (
+                  {group.user_role === "owner" ? (
+                    <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white border-none" onClick={handleDeleteGroup}>
+                      Удалить группу
+                    </Button>
+                  ) : (
                     <Button size="sm" variant="outline" onClick={handleLeave}>
                       Покинуть
                     </Button>

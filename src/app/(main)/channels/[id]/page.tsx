@@ -12,9 +12,11 @@ import { formatNumber, formatRelativeTime } from "@/lib/utils/format";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/components/ui/toast";
 import type { Channel, ChannelPost } from "@/types";
+import { useRouter } from "next/navigation";
 
 export default function ChannelPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [channel, setChannel] = useState<Channel & { posts: ChannelPost[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [postContent, setPostContent] = useState("");
@@ -72,6 +74,24 @@ export default function ChannelPage({ params }: { params: Promise<{ id: string }
     setPosting(false);
   };
 
+  const handleDeleteChannel = async () => {
+    if (!confirm("Вы уверены, что хотите удалить этот канал? Это действие нельзя отменить.")) return;
+    try {
+      const res = await fetch(`/api/channels/${id}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast("Канал успешно удален", "success");
+        router.push("/channels");
+      } else {
+        toast(data.error || "Ошибка при удалении канала", "error");
+      }
+    } catch (err) {
+      toast("Не удалось удалить канал", "error");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
@@ -107,7 +127,14 @@ export default function ChannelPage({ params }: { params: Promise<{ id: string }
                   {formatNumber(channel.subscribers_count)} подписчиков
                 </span>
               </div>
-              {!isOwner && (
+              {isOwner ? (
+                <Button
+                  className="mt-4 bg-red-600 hover:bg-red-700 text-white border-none"
+                  onClick={handleDeleteChannel}
+                >
+                  Удалить канал
+                </Button>
+              ) : (
                 <Button
                   className="mt-4"
                   variant={channel.is_subscribed ? "outline" : "primary"}

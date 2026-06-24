@@ -113,3 +113,41 @@ export async function POST(
 
   return NextResponse.json({ success: false, error: "Неизвестное действие" }, { status: 400 });
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Не авторизован" }, { status: 401 });
+  }
+
+  const { data: channel, error: fetchError } = await supabase
+    .from("channels")
+    .select("owner_id")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !channel) {
+    return NextResponse.json({ success: false, error: "Канал не найден" }, { status: 404 });
+  }
+
+  if (channel.owner_id !== user.id) {
+    return NextResponse.json({ success: false, error: "Только владелец может удалить канал" }, { status: 403 });
+  }
+
+  const { error: deleteError } = await supabase
+    .from("channels")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    return NextResponse.json({ success: false, error: deleteError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, message: "Канал успешно удален" });
+}

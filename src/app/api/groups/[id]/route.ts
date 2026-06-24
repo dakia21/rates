@@ -157,3 +157,46 @@ export async function POST(
 
   return NextResponse.json({ success: false, error: "Неизвестное действие" }, { status: 400 });
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Не авторизован" }, { status: 401 });
+  }
+
+  const { data: group, error: fetchError } = await supabase
+    .from("groups")
+    .select("owner_id, chat_id")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !group) {
+    return NextResponse.json({ success: false, error: "Группа не найдена" }, { status: 404 });
+  }
+
+  if (group.owner_id !== user.id) {
+    return NextResponse.json({ success: false, error: "Только владелец может удалить группу" }, { status: 403 });
+  }
+
+  // Delete associated chat if it exists (cascade will delete messages and participants)
+  if (group.chat_id) {
+    await supabase.from("chats").delete().eq("id", group.chat_id);
+  }
+
+  const { error: deleteError } = await supabase
+    .from("groups")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    return NextResponse.json({ success: false, error: deleteError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, message: "Группа успешно удалена" });
+}

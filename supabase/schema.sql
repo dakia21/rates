@@ -457,6 +457,15 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
 
+-- Helper function to check group membership (bypasses RLS recursion)
+CREATE OR REPLACE FUNCTION public.is_group_member(group_uuid UUID, user_uuid UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members 
+    WHERE group_id = group_uuid AND user_id = user_uuid
+  );
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
+
 -- Chats policies
 CREATE POLICY "Participants can view chats" ON chats FOR SELECT USING (
   auth.uid() = created_by OR
@@ -507,7 +516,8 @@ CREATE POLICY "Authors can delete posts" ON channel_posts FOR DELETE USING (auth
 -- Groups policies
 CREATE POLICY "Public groups viewable" ON groups FOR SELECT USING (
   is_public = true OR
-  EXISTS (SELECT 1 FROM group_members WHERE group_id = id AND user_id = auth.uid())
+  owner_id = auth.uid() OR
+  public.is_group_member(id, auth.uid())
 );
 CREATE POLICY "Users can create groups" ON groups FOR INSERT WITH CHECK (auth.uid() = owner_id);
 CREATE POLICY "Owners can update groups" ON groups FOR UPDATE USING (auth.uid() = owner_id);
@@ -515,7 +525,12 @@ CREATE POLICY "Owners can delete groups" ON groups FOR DELETE USING (auth.uid() 
 
 -- Group members policies
 CREATE POLICY "Members can view group members" ON group_members FOR SELECT USING (
-  EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = group_members.group_id AND gm.user_id = auth.uid())
+  user_id = auth.uid() OR
+  public.is_group_member(group_id, auth.uid()) OR
+  EXISTS (
+    SELECT 1 FROM public.groups g 
+    WHERE g.id = group_id AND (g.is_public = true OR g.owner_id = auth.uid())
+  )
 );
 CREATE POLICY "Users can join groups" ON group_members FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can leave groups" ON group_members FOR DELETE USING (auth.uid() = user_id);
