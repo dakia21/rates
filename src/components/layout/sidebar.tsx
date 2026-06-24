@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/contexts/auth-context";
+import { useSocket } from "@/contexts/socket-context";
 import { Avatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "./theme-toggle";
 import { soundEffects } from "@/lib/utils/sounds";
@@ -40,6 +42,26 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, signOut } = useAuth();
+  const { newNotifications } = useSocket();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!profile) return;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await fetch("/api/notifications?unread=true&limit=1");
+        const data = await res.json();
+        if (data.success) {
+          setUnreadCount(data.unreadCount);
+        }
+      } catch (err) {
+        console.error("Error fetching unread notifications count:", err);
+      }
+    };
+
+    fetchUnreadCount();
+  }, [profile, pathname, newNotifications.length]);
 
   return (
     <aside className="hidden lg:flex flex-col w-72 h-screen sticky top-0 border-r border-border/50 p-4 bg-background/30 backdrop-blur-md">
@@ -76,6 +98,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1 mt-2 overflow-y-auto pr-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href.includes("?") && pathname + window.location.search === item.href);
+          const isNotifications = item.href === "/notifications";
           return (
             <div
               key={item.href}
@@ -84,14 +107,24 @@ export function Sidebar() {
                 router.push(item.href);
               }}
               className={cn(
-                "cursor-pointer flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
+                "cursor-pointer flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 relative",
                 isActive
                   ? "bg-primary/10 text-primary font-bold shadow-sm shadow-primary/5 scale-[1.01]"
                   : "text-muted-foreground hover:bg-secondary/45 hover:text-foreground hover:translate-x-0.5"
               )}
             >
-              <item.icon className="w-5 h-5" />
+              <div className="relative">
+                <item.icon className="w-5 h-5" />
+                {isNotifications && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                )}
+              </div>
               <span>{item.label}</span>
+              {isNotifications && unreadCount > 0 && (
+                <span className="ml-auto text-xs bg-red-500/10 text-red-500 font-bold px-2 py-0.5 rounded-full">
+                  {unreadCount}
+                </span>
+              )}
             </div>
           );
         })}
