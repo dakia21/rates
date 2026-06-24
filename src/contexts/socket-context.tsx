@@ -79,6 +79,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       });
     });
 
+    const onOnlineList = (userIds: string[]) => {
+      setOnlineUsers(new Set(userIds));
+    };
+
+    socket.on("users:online_list", onOnlineList);
+
     const unsubOnline = onUserOnline(({ userId }) => {
       setOnlineUsers((prev) => new Set([...prev, userId]));
     });
@@ -94,6 +100,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
+      socket.off("users:online_list", onOnlineList);
       unsubMessage();
       unsubNotification();
       unsubTypingStart();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, MoreVertical } from "lucide-react";
+import { ArrowLeft, MoreVertical, Pin } from "lucide-react";
 import Link from "next/link";
 import { MessageBubble } from "./message-bubble";
 import { MessageInput } from "./message-input";
@@ -134,7 +134,7 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
         <div className="flex items-center justify-between px-4 py-2 bg-primary/10 border-b border-primary/15 text-xs gap-3 animate-in">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-primary font-bold flex items-center gap-1.5">
-              <span>📌</span>
+              <Pin className="w-3.5 h-3.5 fill-primary/10 rotate-45" />
               Закреплённое:
             </span>
             <span className="truncate text-foreground/90 font-medium">{pinnedMessage.content || "Медиафайл"}</span>

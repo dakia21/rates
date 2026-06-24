@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { TrendingUp, Users, Radio, CheckCircle, Sparkles, Plus, ArrowRight } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/auth-context";
@@ -44,11 +44,22 @@ interface RecommendedGroup {
 export function RightSidebar() {
   const { profile } = useAuth();
   const { onlineUsers } = useSocket();
-  const [onlineProfiles, setOnlineProfiles] = useState<RecommendedUser[]>([]);
+  const [dbProfiles, setDbProfiles] = useState<any[]>([]);
   const [channels, setChannels] = useState<RecommendedChannel[]>([]);
   const [groups, setGroups] = useState<RecommendedGroup[]>([]);
   const [trends, setTrends] = useState<Trend[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const onlineProfiles = useMemo<RecommendedUser[]>(() => {
+    return dbProfiles.map((u) => ({
+      id: u.id,
+      username: u.username,
+      displayName: u.display_name,
+      avatarUrl: u.avatar_url || undefined,
+      isVerified: u.is_verified || false,
+      status: u.is_online || onlineUsers.has(u.id) ? "в сети" : "не в сети",
+    }));
+  }, [dbProfiles, onlineUsers]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -64,16 +75,7 @@ export function RightSidebar() {
           .limit(4);
 
         if (activeUsers) {
-          setOnlineProfiles(
-            activeUsers.map((u) => ({
-              id: u.id,
-              username: u.username,
-              displayName: u.display_name,
-              avatarUrl: u.avatar_url || undefined,
-              isVerified: u.is_verified || false,
-              status: u.is_online || onlineUsers.has(u.id) ? "в сети" : "не в сети",
-            }))
-          );
+          setDbProfiles(activeUsers);
         }
 
         // 2. Load channels from API
@@ -154,7 +156,7 @@ export function RightSidebar() {
     }
 
     loadRightSidebarData();
-  }, [profile?.id, onlineUsers]);
+  }, [profile?.id]);
 
   const handleFollowChannel = async (id: string) => {
     soundEffects.playClick();
@@ -225,7 +227,7 @@ export function RightSidebar() {
             Пользователи онлайн
           </h3>
           <span className="text-xs bg-green-500/10 text-green-400 font-semibold px-2 py-0.5 rounded-full">
-            {onlineProfiles.filter((u) => u.status === "в сети").length}
+            {onlineUsers.size}
           </span>
         </div>
         <div className="space-y-3">

@@ -48,6 +48,9 @@ io.on("connection", async (socket) => {
     .update({ is_online: true, last_seen: new Date().toISOString() })
     .eq("id", userId);
 
+  // Send the list of online user IDs to the connected client
+  socket.emit("users:online_list", Array.from(onlineUsers.keys()));
+
   io.emit("user:online", { userId });
 
   socket.on("chat:join", (chatId: string) => {

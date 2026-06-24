@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark, Sparkles, Heart, MessageCircle, Play } from "lucide-react";
+import { Bookmark, Sparkles, Heart, MessageCircle, Play, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Avatar } from "@/components/ui/avatar";
@@ -47,7 +47,7 @@ export default function FavoritesPage() {
           <p className="text-sm text-muted-foreground">Сохраненные посты и медиафайлы для быстрого доступа</p>
         </div>
         <div className="hidden sm:block">
-          <span className="text-4xl">🔖</span>
+          <Bookmark className="w-10 h-10 text-primary/40" />
         </div>
       </div>
 
@@ -140,8 +140,12 @@ export default function FavoritesPage() {
         </div>
       ) : (
         <div className="glass-card p-12 text-center rounded-3xl border border-border/40 flex flex-col items-center justify-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center text-2xl">
-            {activeTab === "videos" ? "🎬" : "📝"}
+          <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center">
+            {activeTab === "videos" ? (
+              <Play className="w-8 h-8 text-muted-foreground" />
+            ) : (
+              <FileText className="w-8 h-8 text-muted-foreground" />
+            )}
           </div>
           <div className="space-y-1">
             <h3 className="font-bold text-lg">Здесь пока пусто</h3>

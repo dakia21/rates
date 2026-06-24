@@ -6,6 +6,7 @@ import { CommentsSheet } from "./comments-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
 import type { Video } from "@/types";
+import { Play } from "lucide-react";
 
 export function VideoFeed() {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -91,7 +92,7 @@ export function VideoFeed() {
     return (
       <div className="h-[calc(100vh-4rem)] lg:h-screen flex flex-col items-center justify-center gap-4 p-8 text-center">
         <div className="w-20 h-20 rounded-3xl gradient-bg flex items-center justify-center">
-          <span className="text-3xl">🎬</span>
+          <Play className="w-10 h-10 text-white" />
         </div>
         <h2 className="text-xl font-semibold">Лента пуста</h2>
         <p className="text-muted-foreground">Загрузите первое видео или подпишитесь на других пользователей</p>

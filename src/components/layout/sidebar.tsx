@@ -27,6 +27,7 @@ const navItems = [
   { href: "/feed", icon: Home, label: "Лента" },
   { href: "/feed?tab=foryou", icon: Sparkles, label: "Для вас" },
   { href: "/feed?tab=video", icon: Play, label: "Shorts" },
+  { href: "/upload", icon: Upload, label: "Создать" },
   { href: "/messages", icon: MessageCircle, label: "Сообщения" },
   { href: "/channels", icon: Radio, label: "Каналы" },
   { href: "/groups", icon: Users, label: "Группы" },

@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Flame,
   TrendingUp,
+  Play,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/auth-context";
@@ -90,7 +91,7 @@ export default function FeedPage() {
     setAiMessages([
       {
         sender: "ai",
-        text: "Привет! Я Rates AI ассистент. Чем я могу помочь тебе сегодня? Спроси меня о трендах, темах оформления или новых функциях сайта! 🧠✨",
+        text: "Привет! Я Rates AI ассистент. Чем я могу помочь тебе сегодня? Спроси меня о трендах, темах оформления или новых функциях сайта!",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
@@ -197,15 +198,15 @@ export default function FeedPage() {
       let replyText = "";
 
       if (inputVal.includes("тренд") || inputVal.includes("актуальн") || inputVal.includes("hashtag")) {
-        replyText = "В трендах сейчас гремит #AI2026 и #RatesLaunch. Большинство постов посвящено нашему новому дизайну и встроенному звуковому синтезатору! 📈🔥";
+        replyText = "В трендах сейчас гремит #AI2026 и #RatesLaunch. Большинство постов посвящено нашему новому дизайну и встроенному звуковому синтезатору!";
       } else if (inputVal.includes("тема") || inputVal.includes("цвет") || inputVal.includes("дизайн")) {
-        replyText = "У нас есть 6 премиум-тем оформления в 'Настройках': Midnight Neon, Classic Light, Emerald Oasis, Sakura Dream, Cyberpunk 2076 и Nordic Slate. Попробуй переключить их! 🎨✨";
+        replyText = "У нас есть 6 премиум-тем оформления в 'Настройках': Midnight Neon, Classic Light, Emerald Oasis, Sakura Dream, Cyberpunk 2076 and Nordic Slate. Попробуй переключить их!";
       } else if (inputVal.includes("звук") || inputVal.includes("саунд")) {
-        replyText = "Интерактивные звуки синтезируются прямо в браузере с помощью Web Audio API. Вы можете выключить или протестировать их на странице Настроек в разделе 'Внешний вид и звуки'. 🎶🔊";
+        replyText = "Интерактивные звуки синтезируются прямо в браузере с помощью Web Audio API. Вы можете выключить или протестировать их на странице Настроек в разделе 'Внешний вид и звуки'.";
       } else if (inputVal.includes("привет") || inputVal.includes("здравствуй") || inputVal.includes("hello")) {
         replyText = "Привет! Рад тебя слышать. Надеюсь, тебе нравится обновленный дизайн Rates! Чем могу помочь?";
       } else {
-        replyText = "Здорово! Я постоянно обучаюсь и помогаю улучшать Rates. Совсем скоро я смогу анализировать твои посты и давать персональные рекомендации! 🚀🧠";
+        replyText = "Здорово! Я постоянно обучаюсь и помогаю улучшать Rates. Совсем скоро я смогу анализировать твои посты и давать персональные рекомендации!";
       }
 
       const aiMsg: AIMessage = {
@@ -371,8 +372,8 @@ export default function FeedPage() {
                 ))
               ) : (
                 <div className="glass-card p-12 text-center rounded-3xl border border-border/40 flex flex-col items-center justify-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center text-2xl">
-                    🎬
+                  <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center">
+                    <Play className="w-8 h-8 text-muted-foreground" />
                   </div>
                   <div className="space-y-1">
                     <h3 className="font-bold text-lg">Постов пока нет</h3>
