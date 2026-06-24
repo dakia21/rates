@@ -1,4 +1,3 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 
 interface RateLimitConfig {
   maxRequests: number;
@@ -48,52 +47,6 @@ export async function checkRateLimit(
   }
 
   memoryStore.set(key, { count: 1, windowStart: now });
-
-  try {
-    const supabase = createAdminClient();
-    const { data } = await supabase
-      .from("rate_limits")
-      .select("*")
-      .eq("identifier", identifier)
-      .eq("action", action)
-      .single();
-
-    if (data) {
-      const windowStart = new Date(data.window_start).getTime();
-      if (now - windowStart > config.windowMs) {
-        await supabase
-          .from("rate_limits")
-          .update({ count: 1, window_start: new Date().toISOString() })
-          .eq("id", data.id);
-        return { allowed: true, remaining: config.maxRequests - 1, resetAt: now + config.windowMs };
-      }
-
-      if (data.count >= config.maxRequests) {
-        return { allowed: false, remaining: 0, resetAt: windowStart + config.windowMs };
-      }
-
-      await supabase
-        .from("rate_limits")
-        .update({ count: data.count + 1 })
-        .eq("id", data.id);
-
-      return {
-        allowed: true,
-        remaining: config.maxRequests - data.count - 1,
-        resetAt: windowStart + config.windowMs,
-      };
-    }
-
-    await supabase.from("rate_limits").insert({
-      identifier,
-      action,
-      count: 1,
-      window_start: new Date().toISOString(),
-    });
-  } catch {
-    // Fallback to memory-only rate limiting
-  }
-
   return { allowed: true, remaining: config.maxRequests - 1, resetAt: now + config.windowMs };
 }
 
