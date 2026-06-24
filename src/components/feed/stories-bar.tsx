@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Plus, X, ChevronRight, ChevronLeft } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { AnimatePresence, motion } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
 import { soundEffects } from "@/lib/utils/sounds";
 
 interface Story {
@@ -18,49 +19,56 @@ interface Story {
 export function StoriesBar() {
   const [selectedStoryIndex, setSelectedStoryIndex] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
+  const [stories, setStories] = useState<Story[]>([]);
 
-  const stories: Story[] = [
-    {
-      id: "story-1",
-      username: "maria_art",
-      displayName: "Мария Соколова",
-      avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-      mediaUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=600",
-      caption: "Моя новая картина готова! Оцените цвета 🎨✨",
-    },
-    {
-      id: "story-2",
-      username: "dmitry_dev",
-      displayName: "Дмитрий Новиков",
-      avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-      mediaUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600",
-      caption: "Пишу код под неоновую подсветку 💻👾 #RatesAI",
-    },
-    {
-      id: "story-3",
-      username: "elena_travel",
-      displayName: "Елена Морозова",
-      avatarUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150",
-      mediaUrl: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600",
-      caption: "Утренний туман в горах просто невероятен 🌄🚶‍♀️",
-    },
-    {
-      id: "story-4",
-      username: "alex_music",
-      displayName: "Александр Волков",
-      avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
-      mediaUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600",
-      caption: "Записываем новый гитарный трек на студии 🎸🎶",
-    },
-    {
-      id: "story-5",
-      username: "cyber_chef",
-      displayName: "Нейро Кулинар",
-      avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-      mediaUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600",
-      caption: "Завтрак будущего: протеиновый тост с авокадо 🥑🚀",
-    },
-  ];
+  useEffect(() => {
+    const supabase = createClient();
+    async function loadActiveUsersForStories() {
+      try {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(6);
+
+        const mockMedia = [
+          "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=600",
+          "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600",
+          "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600",
+          "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600",
+          "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600",
+          "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600"
+        ];
+        const mockCaptions = [
+          "Моя новая картина готова! Оцените цвета 🎨✨",
+          "Пишу код под неоновую подсветку 💻👾 #RatesAI",
+          "Утренний туман в горах просто невероятен 🌄🚶‍♀️",
+          "Записываем новый гитарный трек на студии 🎸🎶",
+          "Завтрак будущего: протеиновый тост с авокадо 🥑🚀",
+          "Rates 2026 уже в эфире! Встречайте новый дизайн 🔥"
+        ];
+
+        if (profiles && profiles.length > 0) {
+          const mapped = profiles.map((p, idx) => ({
+            id: p.id,
+            username: p.username,
+            displayName: p.display_name,
+            avatarUrl: p.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+            mediaUrl: mockMedia[idx % mockMedia.length],
+            caption: mockCaptions[idx % mockCaptions.length]
+          }));
+          setStories(mapped);
+        } else {
+          setStories([
+            { id: "fallback-1", username: "rates_news", displayName: "Rates News", avatarUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150", mediaUrl: mockMedia[0], caption: mockCaptions[5] }
+          ]);
+        }
+      } catch (err) {
+        console.error("Error loading stories profiles:", err);
+      }
+    }
+    loadActiveUsersForStories();
+  }, []);
 
   useEffect(() => {
     if (selectedStoryIndex === null) {
@@ -72,7 +80,6 @@ export function StoriesBar() {
     const interval = setInterval(() => {
       setProgress((p) => {
         if (p >= 100) {
-          // Go to next story or close
           if (selectedStoryIndex < stories.length - 1) {
             setSelectedStoryIndex(selectedStoryIndex + 1);
             return 0;

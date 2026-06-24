@@ -12,32 +12,14 @@ import {
   Bookmark,
   Send,
   CheckCircle,
-  HelpCircle,
   Flame,
-  UserCheck,
   TrendingUp,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { soundEffects } from "@/lib/utils/sounds";
-
-interface Post {
-  id: string;
-  user: {
-    displayName: string;
-    username: string;
-    avatarUrl?: string;
-    isVerified: boolean;
-  };
-  content: string;
-  imageUrl?: string;
-  likes: number;
-  comments: number;
-  reposts: number;
-  isLiked: boolean;
-  isSaved: boolean;
-  time: string;
-}
+import type { Video } from "@/types";
 
 interface AIMessage {
   sender: "user" | "ai";
@@ -45,10 +27,20 @@ interface AIMessage {
   time: string;
 }
 
+interface RecommendedUser {
+  id: string;
+  name: string;
+  user: string;
+  sub: string;
+  avatar: string;
+}
+
 export default function FeedPage() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<"posts" | "foryou" | "video" | "ai">("posts");
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loadingVideos, setLoadingVideos] = useState(true);
+  const [recUsers, setRecUsers] = useState<RecommendedUser[]>([]);
   const [aiMessages, setAiMessages] = useState<AIMessage[]>([]);
   const [aiInput, setAiInput] = useState("");
   const [aiTyping, setAiTyping] = useState(false);
@@ -76,59 +68,24 @@ export default function FeedPage() {
     return () => window.removeEventListener("switch-feed-tab", handleSwitchTab);
   }, []);
 
-  // Initialize mock posts
+  // Fetch real videos from the database
+  async function loadVideos() {
+    setLoadingVideos(true);
+    try {
+      const res = await fetch("/api/videos?limit=15");
+      const data = await res.json();
+      if (data.success) {
+        setVideos(data.data);
+      }
+    } catch (err) {
+      console.error("Error loading videos for feed:", err);
+    } finally {
+      setLoadingVideos(false);
+    }
+  }
+
   useEffect(() => {
-    setPosts([
-      {
-        id: "post-1",
-        user: {
-          displayName: "Мария Соколова",
-          username: "maria_art",
-          avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-          isVerified: true,
-        },
-        content: "Закончила эскиз для нового выставочного проекта в Москве! Сочетание темного фона и неонового фиолетового света выглядит потрясающе. Это вдохновило меня на оформление профиля в стиле Midnight Neon на Rates! 🎨💜",
-        imageUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=800",
-        likes: 124,
-        comments: 18,
-        reposts: 9,
-        isLiked: false,
-        isSaved: false,
-        time: "10 минут назад",
-      },
-      {
-        id: "post-2",
-        user: {
-          displayName: "Дмитрий Новиков",
-          username: "dmitry_dev",
-          avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-          isVerified: false,
-        },
-        content: "Вчера закончили оптимизацию серверов. Перевели лимиты Rate Limiting полностью на оперативную память в NodeJS (in-memory). Задержки на клики кнопок и переходы снизились в 10 раз! Скорость отклика теперь просто космическая 🚀💻",
-        likes: 85,
-        comments: 12,
-        reposts: 5,
-        isLiked: true,
-        isSaved: true,
-        time: "1 час назад",
-      },
-      {
-        id: "post-3",
-        user: {
-          displayName: "Rates Official",
-          username: "rates_news",
-          avatarUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150",
-          isVerified: true,
-        },
-        content: "🔥 Крупное обновление Rates 2026 уже в эфире! Встречайте 6 потрясающих тем оформления, полностью переработанный стеклянный трехколоночный интерфейс с размытием фона и интерактивное звуковое сопровождение на базе Web Audio API. Какая ваша любимая тема? Напишите в комментариях!",
-        likes: 540,
-        comments: 92,
-        reposts: 48,
-        isLiked: false,
-        isSaved: false,
-        time: "3 часа назад",
-      },
-    ]);
+    loadVideos();
 
     setAiMessages([
       {
@@ -139,40 +96,86 @@ export default function FeedPage() {
     ]);
   }, []);
 
-  const handleLikePost = (id: string) => {
-    setPosts(
-      posts.map((p) => {
-        if (p.id === id) {
-          const nextLiked = !p.isLiked;
-          if (nextLiked) {
-            soundEffects.playLike();
-          } else {
-            soundEffects.playClick();
-          }
-          return {
-            ...p,
-            isLiked: nextLiked,
-            likes: nextLiked ? p.likes + 1 : p.likes - 1,
-          };
+  // Load recommended users from Database
+  useEffect(() => {
+    const supabase = createClient();
+    async function loadRecs() {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .neq("id", profile?.id || "")
+          .limit(4);
+        
+        if (data) {
+          setRecUsers(
+            data.map((p) => ({
+              id: p.id,
+              name: p.display_name,
+              user: p.username,
+              sub: `${p.followers_count} подписчиков`,
+              avatar: p.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+            }))
+          );
         }
-        return p;
-      })
-    );
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    if (profile?.id) {
+      loadRecs();
+    }
+  }, [profile?.id]);
+
+  const handleLikeVideo = async (id: string) => {
+    try {
+      const video = videos.find((v) => v.id === id);
+      if (!video) return;
+
+      const res = await fetch(`/api/videos/${id}/like`, { method: "POST" });
+      const result = await res.json();
+      if (result.success) {
+        const nextLiked = !video.is_liked;
+        if (nextLiked) {
+          soundEffects.playLike();
+        } else {
+          soundEffects.playClick();
+        }
+
+        setVideos(
+          videos.map((v) =>
+            v.id === id
+              ? {
+                  ...v,
+                  is_liked: nextLiked,
+                  likes_count: v.likes_count + (nextLiked ? 1 : -1),
+                }
+              : v
+          )
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleSavePost = (id: string) => {
+  const handleFollowRec = async (userId: string) => {
     soundEffects.playClick();
-    setPosts(
-      posts.map((p) => {
-        if (p.id === id) {
-          return {
-            ...p,
-            isSaved: !p.isSaved,
-          };
-        }
-        return p;
-      })
-    );
+    try {
+      const res = await fetch("/api/follow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        soundEffects.playSent();
+        setRecUsers(recUsers.filter((u) => u.id !== userId));
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleSendAIMessage = () => {
@@ -190,7 +193,6 @@ export default function FeedPage() {
     setAiInput("");
     setAiTyping(true);
 
-    // AI thinking delay (1.2s)
     setTimeout(() => {
       let replyText = "";
 
@@ -201,7 +203,7 @@ export default function FeedPage() {
       } else if (inputVal.includes("звук") || inputVal.includes("саунд")) {
         replyText = "Интерактивные звуки синтезируются прямо в браузере с помощью Web Audio API. Вы можете выключить или протестировать их на странице Настроек в разделе 'Внешний вид и звуки'. 🎶🔊";
       } else if (inputVal.includes("привет") || inputVal.includes("здравствуй") || inputVal.includes("hello")) {
-        replyText = "Привет! Рад тебя слышать. Надеюсь, тебе нравится обновленный дизайн социальной сети Rates! Какие вопросы у тебя есть?";
+        replyText = "Привет! Рад тебя слышать. Надеюсь, тебе нравится обновленный дизайн Rates! Чем могу помочь?";
       } else {
         replyText = "Здорово! Я постоянно обучаюсь и помогаю улучшать Rates. Совсем скоро я смогу анализировать твои посты и давать персональные рекомендации! 🚀🧠";
       }
@@ -260,73 +262,126 @@ export default function FeedPage() {
               transition={{ duration: 0.25 }}
               className="space-y-4"
             >
-              {posts.map((post) => (
-                <div key={post.id} className="glass-card p-4 space-y-4">
-                  {/* Creator Info */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar src={post.user.avatarUrl} alt={post.user.displayName} size="md" />
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <span className="font-bold text-sm hover:underline hover:text-primary cursor-pointer">
-                            {post.user.displayName}
-                          </span>
-                          {post.user.isVerified && <CheckCircle className="w-4 h-4 text-primary fill-primary/10" />}
+              {loadingVideos ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                </div>
+              ) : videos.length > 0 ? (
+                videos.map((video) => (
+                  <div key={video.id} className="glass-card p-4 space-y-4">
+                    {/* Creator Info */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Avatar src={video.profile?.avatar_url} alt={video.profile?.display_name || ""} size="md" />
+                        <div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-bold text-sm hover:underline hover:text-primary cursor-pointer">
+                              {video.profile?.display_name}
+                            </span>
+                            {video.profile?.is_verified && <CheckCircle className="w-4 h-4 text-primary fill-primary/10" />}
+                          </div>
+                          <span className="text-xs text-muted-foreground">@{video.profile?.username} • {new Date(video.created_at).toLocaleDateString()}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">@{post.user.username} • {post.time}</span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleSavePost(post.id)}
-                      className={`p-2 rounded-xl border transition-colors ${
-                        post.isSaved ? "bg-primary/10 border-primary text-primary" : "border-border/50 hover:bg-secondary text-muted-foreground"
-                      }`}
-                    >
-                      <Bookmark className={`w-4 h-4 ${post.isSaved ? "fill-primary" : ""}`} />
-                    </button>
-                  </div>
 
-                  {/* Post Content */}
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
-
-                  {/* Image Attachment */}
-                  {post.imageUrl && (
-                    <div className="relative overflow-hidden rounded-2xl border border-border/40 aspect-[16/10] bg-black/40">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={post.imageUrl} alt="attachment" className="w-full h-full object-cover" />
+                    {/* Title & Description */}
+                    <div>
+                      <h3 className="font-bold text-sm mb-1">{video.title}</h3>
+                      {video.description && (
+                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{video.description}</p>
+                      )}
                     </div>
-                  )}
 
-                  {/* Post Interactions */}
-                  <div className="flex items-center justify-around pt-3 border-t border-border/20 text-xs font-semibold text-muted-foreground">
-                    <button
-                      onClick={() => handleLikePost(post.id)}
-                      className={`flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-red-500/10 transition-colors ${
-                        post.isLiked ? "text-red-500" : "hover:text-red-500"
-                      }`}
-                    >
-                      <Heart className={`w-4 h-4 ${post.isLiked ? "fill-red-500 text-red-500" : ""}`} />
-                      <span>{post.likes}</span>
-                    </button>
+                    {/* Inline Video Player */}
+                    <div className="relative overflow-hidden rounded-2xl border border-border/40 aspect-[16/10] bg-black">
+                      <video
+                        src={video.video_url}
+                        poster={video.thumbnail_url || undefined}
+                        controls
+                        playsInline
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
 
-                    <button
-                      onClick={() => soundEffects.playClick()}
-                      className="flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>{post.comments}</span>
-                    </button>
+                    {/* Tags */}
+                    {video.tags && video.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {video.tags.map((tag) => (
+                          <span key={tag} className="text-xs text-primary font-semibold">
+                            {tag.startsWith("#") ? tag : `#${tag}`}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
-                    <button
-                      onClick={() => { soundEffects.playClick(); soundEffects.playSent(); }}
-                      className="flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-green-500/10 hover:text-green-400 transition-colors"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      <span>{post.reposts}</span>
-                    </button>
+                    {/* Post Interactions */}
+                    <div className="flex items-center justify-around pt-3 border-t border-border/20 text-xs font-semibold text-muted-foreground">
+                      <button
+                        onClick={() => handleLikeVideo(video.id)}
+                        className={`flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-red-500/10 transition-colors ${
+                          video.is_liked ? "text-red-500" : "hover:text-red-500"
+                        }`}
+                      >
+                        <Heart className={`w-4 h-4 ${video.is_liked ? "fill-red-500 text-red-500" : ""}`} />
+                        <span>{video.likes_count}</span>
+                      </button>
+
+                      <button
+                        onClick={() => soundEffects.playClick()}
+                        className="flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>{video.comments_count}</span>
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          soundEffects.playClick();
+                          try {
+                            const res = await fetch(`/api/videos/${video.id}/repost`, { method: "POST" });
+                            const data = await res.json();
+                            if (data.success) {
+                              soundEffects.playSent();
+                              setVideos(
+                                videos.map((v) =>
+                                  v.id === video.id
+                                    ? {
+                                        ...v,
+                                        is_reposted: true,
+                                        reposts_count: v.reposts_count + 1,
+                                      }
+                                    : v
+                                )
+                              );
+                            }
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-green-500/10 transition-colors ${
+                          video.is_reposted ? "text-green-400" : "hover:text-green-400"
+                        }`}
+                      >
+                        <Share2 className="w-4 h-4" />
+                        <span>{video.reposts_count}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="glass-card p-12 text-center rounded-3xl border border-border/40 flex flex-col items-center justify-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center text-2xl">
+                    🎬
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-bold text-lg">Постов пока нет</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm">
+                      Будьте первым, кто опубликует видео! Перейдите на вкладку «Создать» на панели.
+                    </p>
                   </div>
                 </div>
-              ))}
+              )}
             </motion.div>
           )}
 
@@ -351,26 +406,27 @@ export default function FeedPage() {
 
                 {/* Users recommendations row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  {[
-                    { name: "Анна Смирнова", user: "anna_photo", sub: "3.4K подписчиков", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150" },
-                    { name: "Сергей Кузнецов", user: "kuznetsov_design", sub: "8.9K подписчиков", avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150" }
-                  ].map((rec, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-secondary/30 border border-border/40 hover:border-primary/30 transition-all">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Avatar src={rec.avatar} alt={rec.name} size="sm" />
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-xs truncate">{rec.name}</h4>
-                          <span className="text-[10px] text-muted-foreground block">@{rec.user}</span>
+                  {recUsers.length > 0 ? (
+                    recUsers.map((rec) => (
+                      <div key={rec.id} className="flex items-center justify-between p-3 rounded-2xl bg-secondary/30 border border-border/40 hover:border-primary/30 transition-all">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Avatar src={rec.avatar} alt={rec.name} size="sm" />
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-xs truncate">{rec.name}</h4>
+                            <span className="text-[10px] text-muted-foreground block">@{rec.user}</span>
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleFollowRec(rec.id)}
+                          className="text-[10px] bg-primary hover:bg-opacity-95 text-white font-bold px-3 py-1.5 rounded-xl transition-all"
+                        >
+                          Читать
+                        </button>
                       </div>
-                      <button
-                        onClick={() => { soundEffects.playClick(); soundEffects.playSent(); }}
-                        className="text-[10px] bg-primary hover:bg-opacity-95 text-white font-bold px-3 py-1.5 rounded-xl transition-all"
-                      >
-                        Читать
-                      </button>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center col-span-2 py-4">Нет новых авторов для подписки</p>
+                  )}
                 </div>
               </div>
 

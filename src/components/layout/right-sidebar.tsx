@@ -5,6 +5,7 @@ import { TrendingUp, Users, Radio, CheckCircle, Sparkles, Plus, ArrowRight } fro
 import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/auth-context";
 import { useSocket } from "@/contexts/socket-context";
+import { createClient } from "@/lib/supabase/client";
 import { soundEffects } from "@/lib/utils/sounds";
 
 interface Trend {
@@ -27,106 +28,230 @@ interface RecommendedChannel {
   name: string;
   username: string;
   avatarUrl?: string;
-  subscribersCount: string;
+  subscribersCount: number;
   isVerified: boolean;
+  isSubscribed?: boolean;
 }
 
 interface RecommendedGroup {
   id: string;
   name: string;
-  membersCount: string;
+  membersCount: number;
   avatarUrl?: string;
+  isMember?: boolean;
 }
 
 export function RightSidebar() {
   const { profile } = useAuth();
   const { onlineUsers } = useSocket();
-  const [followedIds, setFollowedIds] = useState<string[]>([]);
-  const [joinedGroupIds, setJoinedGroupIds] = useState<string[]>([]);
+  const [onlineProfiles, setOnlineProfiles] = useState<RecommendedUser[]>([]);
+  const [channels, setChannels] = useState<RecommendedChannel[]>([]);
+  const [groups, setGroups] = useState<RecommendedGroup[]>([]);
+  const [trends, setTrends] = useState<Trend[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock trends
-  const trends: Trend[] = [
-    { tag: "#AI2026", category: "Технологии • Популярное", postsCount: "42.8K постов" },
-    { tag: "#RatesLaunch", category: "Тренды • Rates", postsCount: "18.5K постов" },
-    { tag: "#ShortsChallenge", category: "Видео • Челлендж", postsCount: "25.1K роликов" },
-    { tag: "#CyberpunkVibes", category: "Игры • Обсуждаемое", postsCount: "12.3K постов" },
-    { tag: "#SakuraDream", category: "Арт • Эстетика", postsCount: "8.9K постов" },
-  ];
+  useEffect(() => {
+    const supabase = createClient();
 
-  // Mock active online users (to simulate a busy network)
-  const mockOnlineUsers: RecommendedUser[] = [
-    { id: "mock-1", username: "maria_art", displayName: "Мария Соколова", avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150", isVerified: true, status: "смотрит Shorts" },
-    { id: "mock-2", username: "dmitry_dev", displayName: "Дмитрий Новиков", avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150", isVerified: false, status: "пишет в AI Chat" },
-    { id: "mock-3", username: "elena_travel", displayName: "Елена Морозова", avatarUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150", isVerified: true, status: "в сети" },
-    { id: "mock-4", username: "alex_music", displayName: "Александр Волков", avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150", isVerified: false, status: "выкладывает ролик" },
-  ];
+    async function loadRightSidebarData() {
+      try {
+        // 1. Load online users or latest active profiles from Supabase
+        const { data: activeUsers } = await supabase
+          .from("profiles")
+          .select("*")
+          .neq("id", profile?.id || "")
+          .order("last_seen", { ascending: false })
+          .limit(4);
 
-  // Mock recommended channels
-  const recommendedChannels: RecommendedChannel[] = [
-    { id: "ch-1", name: "Science & Tech", username: "scitech", avatarUrl: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=150", subscribersCount: "145K", isVerified: true },
-    { id: "ch-2", name: "AI Art Generation", username: "ai_art", avatarUrl: "https://images.unsplash.com/photo-1547891654-e66ed7edd96c?w=150", subscribersCount: "89K", isVerified: true },
-    { id: "ch-3", name: "Music Live Rates", username: "music_rates", avatarUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=150", subscribersCount: "62K", isVerified: false },
-  ];
+        if (activeUsers) {
+          setOnlineProfiles(
+            activeUsers.map((u) => ({
+              id: u.id,
+              username: u.username,
+              displayName: u.display_name,
+              avatarUrl: u.avatar_url || undefined,
+              isVerified: u.is_verified || false,
+              status: u.is_online || onlineUsers.has(u.id) ? "в сети" : "не в сети",
+            }))
+          );
+        }
 
-  // Mock recommended groups
-  const recommendedGroups: RecommendedGroup[] = [
-    { id: "gr-1", name: "Rates Developers", membersCount: "12,430 участников", avatarUrl: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=150" },
-    { id: "gr-2", name: "Cinema Fan Club", membersCount: "8,920 участников", avatarUrl: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=150" },
-    { id: "gr-3", name: "Design & UX Inspiration", membersCount: "5,410 участников", avatarUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=150" },
-  ];
+        // 2. Load channels from API
+        const channelsRes = await fetch("/api/channels?limit=3");
+        const channelsData = await channelsRes.json();
+        if (channelsData.success) {
+          setChannels(
+            channelsData.data.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              username: c.username,
+              avatarUrl: c.avatar_url || undefined,
+              subscribersCount: c.subscribers_count || 0,
+              isVerified: c.is_verified || false,
+              isSubscribed: c.is_subscribed || false,
+            }))
+          );
+        }
 
-  const handleFollow = (id: string) => {
+        // 3. Load groups from API
+        const groupsRes = await fetch("/api/groups?limit=3");
+        const groupsData = await groupsRes.json();
+        if (groupsData.success) {
+          setGroups(
+            groupsData.data.map((g: any) => ({
+              id: g.id,
+              name: g.name,
+              membersCount: g.members_count || 0,
+              avatarUrl: g.avatar_url || undefined,
+              isMember: g.is_member || false,
+            }))
+          );
+        }
+
+        // 4. Load all videos to compute real-time popular tags
+        const videosRes = await fetch("/api/videos?limit=50");
+        const videosData = await videosRes.json();
+        if (videosData.success && videosData.data.length > 0) {
+          const tagMap = new Map<string, number>();
+          videosData.data.forEach((v: any) => {
+            if (v.tags && Array.isArray(v.tags)) {
+              v.tags.forEach((tag: string) => {
+                const cleanTag = tag.startsWith("#") ? tag : `#${tag}`;
+                tagMap.set(cleanTag, (tagMap.get(cleanTag) || 0) + 1);
+              });
+            }
+          });
+
+          // Sort tags by frequency
+          const sortedTags = Array.from(tagMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([tag, count]) => ({
+              tag,
+              category: "Тренды • В эфире",
+              postsCount: `${count} роликов`,
+            }));
+
+          // Fallback if no tags in DB
+          if (sortedTags.length > 0) {
+            setTrends(sortedTags);
+          } else {
+            setTrends([
+              { tag: "#AI2026", category: "Технологии • Популярное", postsCount: "0 роликов" },
+              { tag: "#RatesSocial", category: "Тренды • Rates", postsCount: "0 роликов" },
+            ]);
+          }
+        } else {
+          setTrends([
+            { tag: "#RatesPlatform", category: "Тренды • Новое", postsCount: "0 роликов" },
+          ]);
+        }
+      } catch (err) {
+        console.error("Error loading RightSidebar data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadRightSidebarData();
+  }, [profile?.id, onlineUsers]);
+
+  const handleFollowChannel = async (id: string) => {
     soundEffects.playClick();
-    if (followedIds.includes(id)) {
-      setFollowedIds(followedIds.filter(fId => fId !== id));
-    } else {
-      setFollowedIds([...followedIds, id]);
-      soundEffects.playSent();
+    try {
+      const isSubscribed = channels.find((c) => c.id === id)?.isSubscribed;
+      const res = await fetch(`/api/channels/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "subscribe" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        soundEffects.playSent();
+        setChannels(
+          channels.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  isSubscribed: data.data.subscribed,
+                  subscribersCount: c.subscribersCount + (data.data.subscribed ? 1 : -1),
+                }
+              : c
+          )
+        );
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleJoinGroup = (id: string) => {
+  const handleJoinGroup = async (id: string) => {
     soundEffects.playClick();
-    if (joinedGroupIds.includes(id)) {
-      setJoinedGroupIds(joinedGroupIds.filter(gId => gId !== id));
-    } else {
-      setJoinedGroupIds([...joinedGroupIds, id]);
-      soundEffects.playSent();
+    try {
+      const isMember = groups.find((g) => g.id === id)?.isMember;
+      const res = await fetch(`/api/groups/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: isMember ? "leave" : "join" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        soundEffects.playSent();
+        setGroups(
+          groups.map((g) =>
+            g.id === id
+              ? {
+                  ...g,
+                  isMember: data.data.joined || false,
+                  membersCount: g.membersCount + (data.data.joined ? 1 : -1),
+                }
+              : g
+          )
+        );
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
   return (
     <aside className="hidden xl:flex flex-col w-[350px] h-screen sticky top-0 p-4 space-y-6 overflow-y-auto border-l border-border/40 bg-background/50 backdrop-blur-md">
       
-      {/* Widget: Who is online / Friends Activity */}
+      {/* Widget: Who is online */}
       <div className="glass-card p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-sm tracking-wide uppercase text-muted-foreground flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            Друзья онлайн
+            Пользователи онлайн
           </h3>
           <span className="text-xs bg-green-500/10 text-green-400 font-semibold px-2 py-0.5 rounded-full">
-            {mockOnlineUsers.length + onlineUsers.size}
+            {onlineProfiles.filter((u) => u.status === "в сети").length}
           </span>
         </div>
         <div className="space-y-3">
-          {mockOnlineUsers.map((user) => (
-            <div key={user.id} className="flex items-center gap-3 group/item">
-              <div className="relative">
-                <Avatar src={user.avatarUrl} alt={user.displayName} size="sm" />
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-background" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold text-sm truncate hover:text-primary transition-colors cursor-pointer">
-                    {user.displayName}
-                  </span>
-                  {user.isVerified && <CheckCircle className="w-3.5 h-3.5 text-primary fill-primary/10" />}
+          {onlineProfiles.length > 0 ? (
+            onlineProfiles.map((user) => (
+              <div key={user.id} className="flex items-center gap-3">
+                <div className="relative">
+                  <Avatar src={user.avatarUrl} alt={user.displayName} size="sm" />
+                  {user.status === "в сети" && (
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-background" />
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{user.status}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-sm truncate hover:text-primary transition-colors cursor-pointer">
+                      {user.displayName}
+                    </span>
+                    {user.isVerified && <CheckCircle className="w-3.5 h-3.5 text-primary fill-primary/10" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{user.status}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-2">Нет активных пользователей</p>
+          )}
         </div>
       </div>
 
@@ -156,32 +281,36 @@ export function RightSidebar() {
           Рекомендуемые каналы
         </h3>
         <div className="space-y-3">
-          {recommendedChannels.map((channel) => (
-            <div key={channel.id} className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Avatar src={channel.avatarUrl} alt={channel.name} size="sm" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-0.5">
-                    <span className="font-semibold text-sm truncate hover:text-primary transition-colors cursor-pointer">
-                      {channel.name}
-                    </span>
-                    {channel.isVerified && <CheckCircle className="w-3.5 h-3.5 text-primary fill-primary/10" />}
+          {channels.length > 0 ? (
+            channels.map((channel) => (
+              <div key={channel.id} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Avatar src={channel.avatarUrl} alt={channel.name} size="sm" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-0.5">
+                      <span className="font-semibold text-sm truncate hover:text-primary transition-colors cursor-pointer">
+                        {channel.name}
+                      </span>
+                      {channel.isVerified && <CheckCircle className="w-3.5 h-3.5 text-primary fill-primary/10" />}
+                    </div>
+                    <span className="text-xs text-muted-foreground">@{channel.username} • {channel.subscribersCount}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">@{channel.username} • {channel.subscribersCount}</span>
                 </div>
+                <button
+                  onClick={() => handleFollowChannel(channel.id)}
+                  className={`flex items-center justify-center p-1.5 rounded-full border transition-all ${
+                    channel.isSubscribed
+                      ? "bg-primary border-primary text-white"
+                      : "border-border hover:border-primary/50 text-foreground"
+                  }`}
+                >
+                  <Plus className={`w-3.5 h-3.5 transition-transform duration-300 ${channel.isSubscribed ? "rotate-45" : ""}`} />
+                </button>
               </div>
-              <button
-                onClick={() => handleFollow(channel.id)}
-                className={`flex items-center justify-center p-1.5 rounded-full border transition-all ${
-                  followedIds.includes(channel.id)
-                    ? "bg-primary border-primary text-white"
-                    : "border-border hover:border-primary/50 text-foreground"
-                }`}
-              >
-                <Plus className={`w-3.5 h-3.5 transition-transform duration-300 ${followedIds.includes(channel.id) ? "rotate-45" : ""}`} />
-              </button>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-2">Рекомендации отсутствуют</p>
+          )}
         </div>
       </div>
 
@@ -192,29 +321,33 @@ export function RightSidebar() {
           Активные группы
         </h3>
         <div className="space-y-3">
-          {recommendedGroups.map((group) => (
-            <div key={group.id} className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Avatar src={group.avatarUrl} alt={group.name} size="sm" />
-                <div className="min-w-0">
-                  <span className="font-semibold text-sm truncate hover:text-primary transition-colors cursor-pointer block">
-                    {group.name}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">{group.membersCount}</span>
+          {groups.length > 0 ? (
+            groups.map((group) => (
+              <div key={group.id} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Avatar src={group.avatarUrl} alt={group.name} size="sm" />
+                  <div className="min-w-0">
+                    <span className="font-semibold text-sm truncate hover:text-primary transition-colors cursor-pointer block">
+                      {group.name}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">{group.membersCount} участников</span>
+                  </div>
                 </div>
+                <button
+                  onClick={() => handleJoinGroup(group.id)}
+                  className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-all ${
+                    group.isMember
+                      ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
+                      : "border-border hover:border-purple-500/50 text-foreground hover:text-purple-400"
+                  }`}
+                >
+                  {group.isMember ? "Выйти" : "Войти"}
+                </button>
               </div>
-              <button
-                onClick={() => handleJoinGroup(group.id)}
-                className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-all ${
-                  joinedGroupIds.includes(group.id)
-                    ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
-                    : "border-border hover:border-purple-500/50 text-foreground hover:text-purple-400"
-                }`}
-              >
-                {joinedGroupIds.includes(group.id) ? "Внутри" : "Войти"}
-              </button>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-2">Групп пока нет</p>
+          )}
         </div>
       </div>
 
@@ -231,7 +364,6 @@ export function RightSidebar() {
         <button
           onClick={() => {
             soundEffects.playClick();
-            // We can dispatch a custom event or navigate to AI chat tab
             const feedTabEvent = new CustomEvent("switch-feed-tab", { detail: "ai" });
             window.dispatchEvent(feedTabEvent);
           }}
