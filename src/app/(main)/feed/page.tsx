@@ -294,16 +294,31 @@ export default function FeedPage() {
                       )}
                     </div>
 
-                    {/* Inline Video Player */}
-                    <div className="relative overflow-hidden rounded-2xl border border-border/40 aspect-[16/10] bg-black">
-                      <video
-                        src={video.video_url}
-                        poster={video.thumbnail_url || undefined}
-                        controls
-                        playsInline
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
+                    {/* Inline Video Player or Image Post */}
+                    {video.video_url === "text-post" ? (
+                      video.thumbnail_url && (
+                        <div className="relative overflow-hidden rounded-2xl border border-border/40 aspect-[16/10] bg-secondary/10">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={video.thumbnail_url}
+                            alt={video.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )
+                    ) : (
+                      video.video_url && (
+                        <div className="relative overflow-hidden rounded-2xl border border-border/40 aspect-[16/10] bg-black">
+                          <video
+                            src={video.video_url}
+                            poster={video.thumbnail_url || undefined}
+                            controls
+                            playsInline
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      )
+                    )}
 
                     {/* Tags */}
                     {video.tags && video.tags.length > 0 && (

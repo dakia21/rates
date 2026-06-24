@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Upload, Video as VideoIcon, X, BarChart2, Heart, MessageSquare, Trash2, Play } from "lucide-react";
+import { Upload, Video as VideoIcon, X, BarChart2, Heart, MessageSquare, Trash2, Play, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +15,16 @@ import type { Video } from "@/types";
 export default function UploadPage() {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"upload" | "studio">("upload");
+  const [activeTab, setActiveTab] = useState<"upload" | "post" | "studio">("upload");
+
+  // Post form state
+  const [postTitle, setPostTitle] = useState("");
+  const [postDescription, setPostDescription] = useState("");
+  const [postTags, setPostTags] = useState("");
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
+  const [posting, setPosting] = useState(false);
+  const postFileRef = useRef<HTMLInputElement>(null);
   
   // Upload form state
   const [file, setFile] = useState<File | null>(null);
@@ -113,6 +122,78 @@ export default function UploadPage() {
     setUploading(false);
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+
+    if (!selected.type.startsWith("image/")) {
+      toast("Выберите изображение", "error");
+      return;
+    }
+
+    setPostImageFile(selected);
+    setPostImagePreview(URL.createObjectURL(selected));
+  };
+
+  const handleCreatePost = async () => {
+    if (!postTitle.trim()) {
+      toast("Введите название поста", "error");
+      return;
+    }
+
+    setPosting(true);
+    let thumbnailUrl = null;
+
+    try {
+      if (postImageFile) {
+        const imgForm = new FormData();
+        imgForm.append("file", postImageFile);
+        imgForm.append("bucket", "thumbnails");
+        const imgRes = await fetch("/api/upload", { method: "POST", body: imgForm });
+        const imgData = await imgRes.json();
+        if (imgData.success) {
+          thumbnailUrl = imgData.data.url;
+        } else {
+          toast(imgData.error || "Ошибка загрузки картинки", "error");
+          setPosting(false);
+          return;
+        }
+      }
+
+      const res = await fetch("/api/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: postTitle.trim(),
+          description: postDescription.trim(),
+          video_url: "text-post",
+          thumbnail_url: thumbnailUrl,
+          duration: 0,
+          tags: postTags.split(",").map((t) => t.trim()).filter(Boolean),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        toast("Пост успешно опубликован!", "success");
+        soundEffects.playSent();
+        // Clear form
+        setPostTitle("");
+        setPostDescription("");
+        setPostTags("");
+        setPostImageFile(null);
+        setPostImagePreview(null);
+        setActiveTab("studio");
+      } else {
+        toast(data.error || "Ошибка создания поста", "error");
+      }
+    } catch (err) {
+      toast("Ошибка соединения", "error");
+    } finally {
+      setPosting(false);
+    }
+  };
+
   // Fetch my uploaded videos
   const loadMyVideos = async () => {
     if (!profile) return;
@@ -167,7 +248,7 @@ export default function UploadPage() {
             <Upload className="w-6 h-6 text-primary" />
             <h1 className="text-2xl font-bold">Панель автора</h1>
           </div>
-          <p className="text-sm text-muted-foreground">Загружайте видео, управляйте публикациями и отслеживайте статистику</p>
+          <p className="text-sm text-muted-foreground">Загружайте видео, публикуйте посты, управляйте публикациями и отслеживайте статистику</p>
         </div>
       </div>
 
@@ -186,6 +267,20 @@ export default function UploadPage() {
         >
           <Upload className="w-4 h-4" />
           Загрузить видео
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("post");
+            soundEffects.playClick();
+          }}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+            activeTab === "post"
+              ? "bg-primary text-white shadow-md shadow-primary/20"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Создать пост
         </button>
         <button
           onClick={() => {
@@ -276,6 +371,64 @@ export default function UploadPage() {
             Опубликовать видео
           </Button>
         </Card>
+      ) : activeTab === "post" ? (
+        <Card className="space-y-6 max-w-2xl">
+          {!postImagePreview ? (
+            <button
+              onClick={() => postFileRef.current?.click()}
+              className="w-full aspect-video rounded-2xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-primary bg-secondary/10"
+            >
+              <Upload className="w-12 h-12" />
+              <span className="font-medium">Добавить изображение к посту (необязательно)</span>
+              <span className="text-xs">PNG, JPG, WebP до 10MB</span>
+            </button>
+          ) : (
+            <div className="relative aspect-video rounded-2xl overflow-hidden bg-black/40 flex items-center justify-center border border-border/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={postImagePreview} alt="Preview" className="max-w-full max-h-full object-contain" />
+              <button
+                onClick={() => {
+                  setPostImageFile(null);
+                  setPostImagePreview(null);
+                  soundEffects.playClick();
+                }}
+                className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <input ref={postFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+
+          <Input
+            label="Заголовок поста"
+            value={postTitle}
+            onChange={(e) => setPostTitle(e.target.value)}
+            placeholder="Введите название поста"
+          />
+          <Textarea
+            label="Текст поста"
+            value={postDescription}
+            onChange={(e) => setPostDescription(e.target.value)}
+            placeholder="О чем вы хотите рассказать?"
+          />
+          <Input
+            label="Теги"
+            value={postTags}
+            onChange={(e) => setPostTags(e.target.value)}
+            placeholder="тег1, тег2, тег3 (через запятую)"
+          />
+
+          <Button
+            className="w-full"
+            onClick={handleCreatePost}
+            loading={posting}
+            disabled={!postTitle.trim()}
+          >
+            Опубликовать пост
+          </Button>
+        </Card>
       ) : (
         <div className="space-y-4">
           {loadingMyVideos ? (
@@ -295,6 +448,10 @@ export default function UploadPage() {
                         alt={video.title}
                         className="w-full h-full object-cover"
                       />
+                    ) : video.video_url === "text-post" ? (
+                      <div className="absolute inset-0 flex items-center justify-center text-white/20">
+                        <FileText className="w-6 h-6" />
+                      </div>
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-white/20">
                         <Play className="w-6 h-6" />

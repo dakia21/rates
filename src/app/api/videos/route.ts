@@ -94,9 +94,7 @@ export async function POST(request: Request) {
 
   const { title, description, tags, is_public } = parsed.data;
 
-  if (!body.video_url) {
-    return NextResponse.json({ success: false, error: "video_url обязателен" }, { status: 400 });
-  }
+  const video_url = body.video_url || "text-post";
 
   const { data: video, error } = await supabase
     .from("videos")
@@ -104,7 +102,7 @@ export async function POST(request: Request) {
       user_id: user.id,
       title,
       description: description || "",
-      video_url: body.video_url,
+      video_url,
       thumbnail_url: body.thumbnail_url || null,
       duration: body.duration || 0,
       tags: tags || [],
