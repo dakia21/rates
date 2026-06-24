@@ -89,7 +89,7 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
         );
 
       default:
-        return <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>;
+        return <p className="text-sm whitespace-pre-wrap break-words select-text">{message.content}</p>;
     }
   };
 

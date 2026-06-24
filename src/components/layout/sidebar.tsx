@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   MessageCircle,
@@ -38,16 +38,23 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { profile, signOut } = useAuth();
 
   return (
     <aside className="hidden lg:flex flex-col w-72 h-screen sticky top-0 border-r border-border/50 p-4 bg-background/30 backdrop-blur-md">
-      <Link href="/feed" onClick={() => soundEffects.playClick()} className="flex items-center gap-3 px-4 py-4">
+      <div
+        onClick={() => {
+          soundEffects.playClick();
+          router.push("/feed");
+        }}
+        className="flex items-center gap-3 px-4 py-4 cursor-pointer"
+      >
         <div className="w-10 h-10 rounded-2xl gradient-bg flex items-center justify-center shadow-lg shadow-primary/20">
           <span className="text-white font-bold text-lg">R</span>
         </div>
         <span className="text-2xl font-bold gradient-text">Rates</span>
-      </Link>
+      </div>
 
       {/* Global Search Bar */}
       <div className="px-2 mb-4 relative">
@@ -70,12 +77,14 @@ export function Sidebar() {
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href.includes("?") && pathname + window.location.search === item.href);
           return (
-            <Link
+            <div
               key={item.href}
-              href={item.href}
-              onClick={() => soundEffects.playClick()}
+              onClick={() => {
+                soundEffects.playClick();
+                router.push(item.href);
+              }}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
+                "cursor-pointer flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
                 isActive
                   ? "bg-primary/10 text-primary font-bold shadow-sm shadow-primary/5 scale-[1.01]"
                   : "text-muted-foreground hover:bg-secondary/45 hover:text-foreground hover:translate-x-0.5"
@@ -83,16 +92,18 @@ export function Sidebar() {
             >
               <item.icon className="w-5 h-5" />
               <span>{item.label}</span>
-            </Link>
+            </div>
           );
         })}
 
         {(profile?.role === "admin" || profile?.role === "moderator") && (
-          <Link
-            href="/admin"
-            onClick={() => soundEffects.playClick()}
+          <div
+            onClick={() => {
+              soundEffects.playClick();
+              router.push("/admin");
+            }}
             className={cn(
-              "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
+              "cursor-pointer flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
               pathname.startsWith("/admin")
                 ? "bg-primary/10 text-primary font-bold"
                 : "text-muted-foreground hover:bg-secondary/45 hover:text-foreground hover:translate-x-0.5"
@@ -100,7 +111,7 @@ export function Sidebar() {
           >
             <Shield className="w-5 h-5" />
             <span>Админ</span>
-          </Link>
+          </div>
         )}
       </nav>
 
@@ -112,13 +123,25 @@ export function Sidebar() {
 
         {profile && (
           <div className="glass p-3 flex items-center gap-3 rounded-2xl border border-border/40 shadow-xl">
-            <Link href={`/profile/${profile.username}`} onClick={() => soundEffects.playClick()}>
+            <div
+              onClick={() => {
+                soundEffects.playClick();
+                router.push(`/profile/${profile.username}`);
+              }}
+              className="cursor-pointer"
+            >
               <Avatar src={profile.avatar_url} alt={profile.display_name} size="md" online={profile.is_online} />
-            </Link>
+            </div>
             <div className="flex-1 min-w-0">
-              <Link href={`/profile/${profile.username}`} onClick={() => soundEffects.playClick()} className="font-semibold text-sm truncate block hover:text-primary transition-colors">
+              <div
+                onClick={() => {
+                  soundEffects.playClick();
+                  router.push(`/profile/${profile.username}`);
+                }}
+                className="cursor-pointer font-semibold text-sm truncate block hover:text-primary transition-colors"
+              >
                 {profile.display_name}
-              </Link>
+              </div>
               <p className="text-xs text-muted-foreground truncate">@{profile.username}</p>
             </div>
             <button onClick={() => { signOut(); soundEffects.playClick(); }} className="btn-ghost p-2 text-muted-foreground hover:text-destructive rounded-xl">

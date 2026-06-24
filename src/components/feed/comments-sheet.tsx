@@ -105,7 +105,7 @@ export function CommentsSheet({ videoId, onClose, onCommentAdded }: CommentsShee
                           {formatRelativeTime(comment.created_at)}
                         </span>
                       </div>
-                      <p className="text-sm mt-0.5">{comment.content}</p>
+                      <p className="text-sm mt-0.5 select-text">{comment.content}</p>
                     </div>
                   </div>
                 ))

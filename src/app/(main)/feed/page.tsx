@@ -321,7 +321,7 @@ export default function FeedPage() {
                     </div>
 
                     {/* Title & Description */}
-                    <div>
+                    <div className="select-text">
                       <h3 className="font-bold text-sm mb-1">{video.title}</h3>
                       {video.description && (
                         <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{video.description}</p>
@@ -533,7 +533,7 @@ export default function FeedPage() {
                           : "bg-secondary/40 border border-border/40 text-foreground rounded-tl-none"
                       }`}
                     >
-                      <p>{msg.text}</p>
+                      <p className="select-text">{msg.text}</p>
                       <span className={`text-[9px] block text-right mt-1.5 ${msg.sender === "user" ? "text-white/70" : "text-muted-foreground"}`}>
                         {msg.time}
                       </span>

@@ -36,6 +36,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.remove("midnight", "light", "emerald", "sakura", "cyberpunk", "nordic");
     root.classList.add(initial);
     root.classList.toggle("dark", initial !== "light");
+
+    const handleDragStart = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("dragstart", handleDragStart);
+    return () => {
+      window.removeEventListener("dragstart", handleDragStart);
+    };
   }, []);
 
   const setTheme = (newTheme: Theme) => {
