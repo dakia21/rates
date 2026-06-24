@@ -8,9 +8,10 @@ import { MessageInput } from "./message-input";
 import { TypingIndicator } from "./typing-indicator";
 import { Avatar } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
-import { joinChat, leaveChat, onNewMessage } from "@/lib/socket/client";
+import { joinChat, leaveChat, onNewMessage, getSocket } from "@/lib/socket/client";
 import { useAuth } from "@/contexts/auth-context";
 import { useSocket } from "@/contexts/socket-context";
+import { soundEffects } from "@/lib/utils/sounds";
 import type { Message, Chat } from "@/types";
 
 interface ChatWindowProps {
@@ -45,7 +46,13 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
 
     const unsub = onNewMessage((msg) => {
       if (msg.chat_id === chatId) {
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+        if (msg.sender_id !== profile?.id) {
+          soundEffects.playReceived();
+        }
       }
     });
 
@@ -53,7 +60,7 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
       leaveChat(chatId);
       unsub();
     };
-  }, [chatId, fetchMessages]);
+  }, [chatId, fetchMessages, profile?.id]);
 
   useEffect(() => {
     scrollToBottom();
@@ -67,7 +74,12 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
     });
     const result = await res.json();
     if (result.success) {
-      setMessages((prev) => [...prev, result.data]);
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === result.data.id)) return prev;
+        return [...prev, result.data];
+      });
+      getSocket().emit("message:send", result.data);
+      soundEffects.playSent();
     }
   };
 

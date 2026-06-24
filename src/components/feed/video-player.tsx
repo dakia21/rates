@@ -18,6 +18,7 @@ import { formatNumber } from "@/lib/utils/format";
 import type { Video } from "@/types";
 import Link from "next/link";
 import { cn } from "@/lib/utils/cn";
+import { soundEffects } from "@/lib/utils/sounds";
 
 interface VideoPlayerProps {
   video: Video;
@@ -75,25 +76,34 @@ export function VideoPlayer({
       setLiked(true);
       setLikesCount((c) => c + 1);
       onLike(video.id);
+      soundEffects.playLike();
     }
     setShowHeart(true);
     setTimeout(() => setShowHeart(false), 800);
   }, [liked, video.id, onLike]);
 
   const handleLike = () => {
-    setLiked(!liked);
+    const newLiked = !liked;
+    setLiked(newLiked);
     setLikesCount((c) => (liked ? c - 1 : c + 1));
     onLike(video.id);
+    if (newLiked) {
+      soundEffects.playLike();
+    } else {
+      soundEffects.playClick();
+    }
   };
 
   const handleRepost = () => {
     setReposted(!reposted);
     onRepost(video.id);
+    soundEffects.playClick();
   };
 
   const handleFollow = () => {
     setFollowing(true);
     onFollow(video.user_id);
+    soundEffects.playClick();
   };
 
   return (
@@ -175,7 +185,7 @@ export function VideoPlayer({
               <span className="text-white text-xs font-medium">{formatNumber(likesCount)}</span>
             </button>
 
-            <button onClick={() => onComment(video.id)} className="flex flex-col items-center gap-1">
+            <button onClick={() => { onComment(video.id); soundEffects.playClick(); }} className="flex flex-col items-center gap-1">
               <div className="p-2 rounded-full glass">
                 <MessageCircle className="w-6 h-6 text-white" />
               </div>
@@ -189,14 +199,14 @@ export function VideoPlayer({
               <span className="text-white text-xs font-medium">{formatNumber(video.reposts_count)}</span>
             </button>
 
-            <button className="flex flex-col items-center gap-1">
+            <button onClick={() => soundEffects.playClick()} className="flex flex-col items-center gap-1">
               <div className="p-2 rounded-full glass">
                 <Bookmark className="w-6 h-6 text-white" />
               </div>
             </button>
 
             <button
-              onClick={() => setIsMuted(!isMuted)}
+              onClick={() => { setIsMuted(!isMuted); soundEffects.playClick(); }}
               className="p-2 rounded-full glass"
             >
               {isMuted ? (

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, MessageCircle, Radio, Users, Search, Upload } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { soundEffects } from "@/lib/utils/sounds";
 
 const mobileNavItems = [
   { href: "/feed", icon: Home, label: "Лента" },
@@ -28,6 +29,7 @@ export function MobileNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => soundEffects.playClick()}
                 className="flex flex-col items-center -mt-4"
               >
                 <div className="w-12 h-12 rounded-2xl gradient-bg flex items-center justify-center shadow-lg shadow-rates-500/30">
@@ -41,6 +43,7 @@ export function MobileNav() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => soundEffects.playClick()}
               className={cn(
                 "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors",
                 isActive ? "text-rates-500" : "text-muted-foreground"

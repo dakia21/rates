@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-type Theme = "light" | "dark";
+type Theme = "midnight" | "light" | "emerald" | "sakura" | "cyberpunk" | "nordic";
+
+const THEMES: Theme[] = ["midnight", "light", "emerald", "sakura", "cyberpunk", "nordic"];
 
 interface ThemeContextType {
   theme: Theme;
@@ -19,31 +21,41 @@ export function useTheme() {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>("midnight");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const stored = localStorage.getItem("rates-theme") as Theme | null;
+    let stored = localStorage.getItem("rates-theme") as Theme | "dark" | null;
+    if (stored === "dark") stored = "midnight";
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initial = stored || (prefersDark ? "dark" : "light");
+    const initial = (stored as Theme) || (prefersDark ? "midnight" : "light");
+    
     setThemeState(initial);
-    document.documentElement.classList.toggle("dark", initial === "dark");
+    const root = document.documentElement;
+    root.classList.remove("midnight", "light", "emerald", "sakura", "cyberpunk", "nordic");
+    root.classList.add(initial);
+    root.classList.toggle("dark", initial !== "light");
   }, []);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem("rates-theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
+    const root = document.documentElement;
+    root.classList.remove("midnight", "light", "emerald", "sakura", "cyberpunk", "nordic");
+    root.classList.add(newTheme);
+    root.classList.toggle("dark", newTheme !== "light");
   };
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    const currentIndex = THEMES.indexOf(theme);
+    const nextIndex = (currentIndex + 1) % THEMES.length;
+    setTheme(THEMES[nextIndex]);
   };
 
   if (!mounted) {
     return (
-      <ThemeContext.Provider value={{ theme: "dark", toggleTheme: () => {}, setTheme: () => {} }}>
+      <ThemeContext.Provider value={{ theme: "midnight", toggleTheme: () => {}, setTheme: () => {} }}>
         <div className="opacity-0">{children}</div>
       </ThemeContext.Provider>
     );
