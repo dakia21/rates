@@ -19,6 +19,14 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "50mb",
     },
   },
+  async rewrites() {
+    return [
+      {
+        source: "/_supabase/:path*",
+        destination: "https://ypkaqtjypxmexzfiutti.supabase.co/:path*",
+      },
+    ];
+  },
 };
 
 export default withPWA({
