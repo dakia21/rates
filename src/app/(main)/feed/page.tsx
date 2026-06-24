@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { StoriesBar } from "@/components/feed/stories-bar";
 import { VideoFeed } from "@/components/feed/video-feed";
+import { CommentsSheet } from "@/components/feed/comments-sheet";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
@@ -45,6 +46,7 @@ export default function FeedPage() {
   const [aiMessages, setAiMessages] = useState<AIMessage[]>([]);
   const [aiInput, setAiInput] = useState("");
   const [aiTyping, setAiTyping] = useState(false);
+  const [commentsVideoId, setCommentsVideoId] = useState<string | null>(null);
 
   // Load active tab from window search parameter (e.g. ?tab=video)
   useEffect(() => {
@@ -151,6 +153,38 @@ export default function FeedPage() {
                   ...v,
                   is_liked: nextLiked,
                   likes_count: v.likes_count + (nextLiked ? 1 : -1),
+                }
+              : v
+          )
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRepostVideo = async (id: string) => {
+    try {
+      const video = videos.find((v) => v.id === id);
+      if (!video) return;
+
+      const res = await fetch(`/api/videos/${id}/repost`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        const nextReposted = data.data.reposted;
+        if (nextReposted) {
+          soundEffects.playSent();
+        } else {
+          soundEffects.playClick();
+        }
+
+        setVideos(
+          videos.map((v) =>
+            v.id === id
+              ? {
+                  ...v,
+                  is_reposted: nextReposted,
+                  reposts_count: v.reposts_count + (nextReposted ? 1 : -1),
                 }
               : v
           )
@@ -344,7 +378,10 @@ export default function FeedPage() {
                       </button>
 
                       <button
-                        onClick={() => soundEffects.playClick()}
+                        onClick={() => {
+                          soundEffects.playClick();
+                          setCommentsVideoId(video.id);
+                        }}
                         className="flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
                       >
                         <MessageCircle className="w-4 h-4" />
@@ -352,29 +389,7 @@ export default function FeedPage() {
                       </button>
 
                       <button
-                        onClick={async () => {
-                          soundEffects.playClick();
-                          try {
-                            const res = await fetch(`/api/videos/${video.id}/repost`, { method: "POST" });
-                            const data = await res.json();
-                            if (data.success) {
-                              soundEffects.playSent();
-                              setVideos(
-                                videos.map((v) =>
-                                  v.id === video.id
-                                    ? {
-                                        ...v,
-                                        is_reposted: true,
-                                        reposts_count: v.reposts_count + 1,
-                                      }
-                                    : v
-                                )
-                              );
-                            }
-                          } catch (err) {
-                            console.error(err);
-                          }
-                        }}
+                        onClick={() => handleRepostVideo(video.id)}
                         className={`flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-green-500/10 transition-colors ${
                           video.is_reposted ? "text-green-400" : "hover:text-green-400"
                         }`}
@@ -559,6 +574,20 @@ export default function FeedPage() {
           )}
         </AnimatePresence>
       </div>
+
+      <CommentsSheet
+        videoId={commentsVideoId}
+        onClose={() => setCommentsVideoId(null)}
+        onCommentAdded={() => {
+          setVideos((prev) =>
+            prev.map((v) =>
+              v.id === commentsVideoId
+                ? { ...v, comments_count: v.comments_count + 1 }
+                : v
+            )
+          );
+        }}
+      />
     </div>
   );
 }

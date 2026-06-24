@@ -67,7 +67,13 @@ export function VideoFeed() {
   const handleRepost = async (videoId: string) => {
     const res = await fetch(`/api/videos/${videoId}/repost`, { method: "POST" });
     const data = await res.json();
-    if (data.success) toast("Репост опубликован", "success");
+    if (data.success) {
+      if (data.data.reposted) {
+        toast("Репост опубликован", "success");
+      } else {
+        toast("Репост удален", "success");
+      }
+    }
   };
 
   const handleFollow = async (userId: string) => {

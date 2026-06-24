@@ -14,9 +14,10 @@ import type { VideoComment } from "@/types";
 interface CommentsSheetProps {
   videoId: string | null;
   onClose: () => void;
+  onCommentAdded?: () => void;
 }
 
-export function CommentsSheet({ videoId, onClose }: CommentsSheetProps) {
+export function CommentsSheet({ videoId, onClose, onCommentAdded }: CommentsSheetProps) {
   const [comments, setComments] = useState<VideoComment[]>([]);
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState("");
@@ -52,6 +53,7 @@ export function CommentsSheet({ videoId, onClose }: CommentsSheetProps) {
     if (data.success) {
       setComments((prev) => [data.data, ...prev]);
       setContent("");
+      onCommentAdded?.();
     } else {
       toast(data.error || "Ошибка", "error");
     }
