@@ -373,6 +373,7 @@ BEGIN
     UPDATE profiles SET videos_count = videos_count + 1 WHERE id = NEW.user_id;
   ELSIF TG_OP = 'DELETE' THEN
     UPDATE profiles SET videos_count = GREATEST(videos_count - 1, 0) WHERE id = OLD.user_id;
+    UPDATE profiles SET likes_count = GREATEST(likes_count - OLD.likes_count, 0) WHERE id = OLD.user_id;
   END IF;
   RETURN NULL;
 END;

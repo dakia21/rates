@@ -38,6 +38,15 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: "Не авторизован" }, { status: 401 });
   }
 
+  // 1. Fetch video/post details to get likes_count before deleting
+  const { data: video } = await supabase
+    .from("videos")
+    .select("likes_count, user_id")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
+  // 2. Perform the deletion
   const { error } = await supabase
     .from("videos")
     .delete()
@@ -46,6 +55,22 @@ export async function DELETE(
 
   if (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+
+  // 3. Decrement author's profile likes_count if video had likes
+  if (video && video.likes_count > 0) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("likes_count")
+      .eq("id", video.user_id)
+      .single();
+
+    if (profile) {
+      await supabase
+        .from("profiles")
+        .update({ likes_count: Math.max(0, (profile.likes_count || 0) - video.likes_count) })
+        .eq("id", video.user_id);
+    }
   }
 
   return NextResponse.json({ success: true });
