@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Play, Heart } from "lucide-react";
 import { formatNumber } from "@/lib/utils/format";
+import { soundEffects } from "@/lib/utils/sounds";
 import type { Video } from "@/types";
 
 interface ProfileVideosProps {
@@ -26,6 +27,7 @@ export function ProfileVideos({ videos, username }: ProfileVideosProps) {
         <Link
           key={video.id}
           href={`/feed?video=${video.id}`}
+          onClick={() => soundEffects.playClick()}
           className="group relative aspect-[9/16] rounded-2xl overflow-hidden bg-secondary"
         >
           {video.thumbnail_url ? (

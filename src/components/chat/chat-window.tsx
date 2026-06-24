@@ -25,6 +25,16 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { profile } = useAuth();
   const { typingUsers, onlineUsers } = useSocket();
+  const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
+
+  useEffect(() => {
+    const pinned = messages.find((m) => m.is_pinned);
+    if (pinned) {
+      setPinnedMessage(pinned);
+    } else if (messages.length > 0 && !pinnedMessage) {
+      setPinnedMessage(messages[0]);
+    }
+  }, [messages, pinnedMessage]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -119,6 +129,27 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
           <MoreVertical className="w-5 h-5" />
         </button>
       </div>
+
+      {pinnedMessage && (
+        <div className="flex items-center justify-between px-4 py-2 bg-primary/10 border-b border-primary/15 text-xs gap-3 animate-in">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-primary font-bold flex items-center gap-1.5">
+              <span>📌</span>
+              Закреплённое:
+            </span>
+            <span className="truncate text-foreground/90 font-medium">{pinnedMessage.content || "Медиафайл"}</span>
+          </div>
+          <button
+            onClick={() => {
+              setPinnedMessage(null);
+              soundEffects.playClick();
+            }}
+            className="text-[10px] text-muted-foreground hover:text-foreground font-bold px-2 py-0.5 rounded-lg hover:bg-secondary/40"
+          >
+            Скрыть
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4">
         {messages.map((msg) => (

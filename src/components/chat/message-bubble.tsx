@@ -3,7 +3,9 @@
 import { formatRelativeTime, formatFileSize } from "@/lib/utils/format";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils/cn";
-import { File, Mic, Image as ImageIcon, Video } from "lucide-react";
+import { useState } from "react";
+import { soundEffects } from "@/lib/utils/sounds";
+import { File, Mic, Image as ImageIcon, Video, Smile } from "lucide-react";
 import Image from "next/image";
 import type { Message } from "@/types";
 
@@ -13,6 +15,33 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
+  const [reactions, setReactions] = useState<{ emoji: string; count: number; reacted: boolean }[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const emojiOptions = ["👍", "❤️", "🔥", "😂", "🎉", "😢"];
+
+  const handleReact = (emoji: string) => {
+    soundEffects.playLike();
+    setReactions((prev) => {
+      const existing = prev.find((r) => r.emoji === emoji);
+      if (existing) {
+        if (existing.reacted) {
+          const updated = prev.map((r) =>
+            r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r
+          );
+          return updated.filter((r) => r.count > 0);
+        } else {
+          return prev.map((r) =>
+            r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r
+          );
+        }
+      } else {
+        return [...prev, { emoji, count: 1, reacted: true }];
+      }
+    });
+    setShowPicker(false);
+  };
+
   const renderContent = () => {
     switch (message.type) {
       case "image":
@@ -72,7 +101,10 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
   }[message.type] : null;
 
   return (
-    <div className={cn("flex gap-2 mb-3", isOwn && "flex-row-reverse")}>
+    <div
+      className={cn("flex gap-2 mb-3 relative group", isOwn && "flex-row-reverse")}
+      onMouseLeave={() => setShowPicker(false)}
+    >
       {!isOwn && (
         <Avatar
           src={message.sender?.avatar_url}
@@ -101,6 +133,28 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
           )}
           {renderContent()}
         </div>
+
+        {/* Display Reactions */}
+        {reactions.length > 0 && (
+          <div className={cn("flex flex-wrap gap-1 mt-1.5", isOwn ? "justify-end" : "justify-start")}>
+            {reactions.map((r) => (
+              <button
+                key={r.emoji}
+                onClick={() => handleReact(r.emoji)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all duration-300 active:scale-90",
+                  r.reacted
+                    ? "bg-primary/15 border-primary/40 text-primary font-bold"
+                    : "bg-secondary/40 border-border/50 text-foreground hover:bg-secondary/70"
+                )}
+              >
+                <span>{r.emoji}</span>
+                <span className="text-[10px]">{r.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className={cn("flex items-center gap-1 mt-1 px-1", isOwn && "justify-end")}>
           {typeIcon && (() => { const Icon = typeIcon; return <Icon className="w-3 h-3 text-muted-foreground" />; })()}
           <span className="text-[10px] text-muted-foreground">
@@ -108,6 +162,36 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
             {message.is_edited && " (изменено)"}
           </span>
         </div>
+      </div>
+
+      {/* Emoji Reaction Trigger */}
+      <div className="flex items-center self-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-1 relative">
+        <button
+          onClick={() => {
+            setShowPicker(!showPicker);
+            soundEffects.playClick();
+          }}
+          className="p-1 rounded-full hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+        >
+          <Smile className="w-4.5 h-4.5" />
+        </button>
+
+        {showPicker && (
+          <div className={cn(
+            "absolute z-35 bottom-full mb-1 bg-card border border-border/40 p-1.5 rounded-2xl shadow-xl flex gap-1.5 animate-in",
+            isOwn ? "right-0" : "left-0"
+          )}>
+            {emojiOptions.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => handleReact(emoji)}
+                className="w-7 h-7 flex items-center justify-center text-sm hover:bg-secondary/70 rounded-lg transition-colors"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
