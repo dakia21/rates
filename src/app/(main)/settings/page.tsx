@@ -21,7 +21,17 @@ export default function SettingsPage() {
     display_name: profile?.display_name || "",
     username: profile?.username || "",
     bio: profile?.bio || "",
+    profile_music_url: profile?.profile_music_url || "",
+    profile_music_title: profile?.profile_music_title || "",
+    profile_music_artist: profile?.profile_music_artist || "",
   });
+
+  const musicPresets = [
+    { name: "Lofi Ambient", artist: "Helix Lofi", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+    { name: "Retro Synthwave", artist: "Helix Synth", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+    { name: "Ocean Breeze", artist: "Helix Chill", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" },
+  ];
+
   const [saving, setSaving] = useState(false);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -223,6 +233,100 @@ export default function SettingsPage() {
           </div>
         </Card>
       </div>
+
+      <div>
+        <h2 className="text-2xl font-bold mb-6">Фоновая музыка профиля</h2>
+        <Card className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Эта музыка будет тихо воспроизводиться, когда другие пользователи посещают ваш профиль.
+          </p>
+
+          <div className="space-y-3">
+            <h3 className="font-semibold text-sm">Быстрый выбор пресета</h3>
+            <div className="flex flex-wrap gap-2">
+              {musicPresets.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setForm({
+                      ...form,
+                      profile_music_url: preset.url,
+                      profile_music_title: preset.name,
+                      profile_music_artist: preset.artist,
+                    });
+                    soundEffects.playClick();
+                  }}
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-secondary/60 hover:bg-secondary border border-border/60 transition-all active:scale-[0.98]"
+                >
+                  🎵 {preset.name} ({preset.artist})
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-2">
+            <Input
+              label="URL аудиофайла (MP3)"
+              value={form.profile_music_url}
+              onChange={(e) => setForm({ ...form, profile_music_url: e.target.value })}
+              placeholder="https://example.com/song.mp3"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Название трека"
+                value={form.profile_music_title}
+                onChange={(e) => setForm({ ...form, profile_music_title: e.target.value })}
+                placeholder="Lofi Breeze"
+              />
+              <Input
+                label="Исполнитель"
+                value={form.profile_music_artist}
+                onChange={(e) => setForm({ ...form, profile_music_artist: e.target.value })}
+                placeholder="Lofi generator"
+              />
+            </div>
+          </div>
+
+          {form.profile_music_url && (
+            <div className="p-4 rounded-2xl bg-secondary/30 border border-border/40 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-xl animate-spin-slow">💿</span>
+                <div>
+                  <p className="text-sm font-semibold">{form.profile_music_title || "Без названия"}</p>
+                  <p className="text-xs text-muted-foreground">{form.profile_music_artist || "Неизвестен"}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setForm({
+                    ...form,
+                    profile_music_url: "",
+                    profile_music_title: "",
+                    profile_music_artist: "",
+                  });
+                  soundEffects.playClick();
+                }}
+                className="text-xs text-destructive hover:underline font-medium"
+              >
+                Очистить
+              </button>
+            </div>
+          )}
+
+          <Button
+            onClick={() => {
+              handleSave();
+              soundEffects.playClick();
+            }}
+            loading={saving}
+          >
+            Сохранить настройки музыки
+          </Button>
+        </Card>
+      </div>
     </div>
   );
 }
+

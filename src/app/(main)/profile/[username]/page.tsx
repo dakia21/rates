@@ -3,6 +3,8 @@
 import { useState, useEffect, use } from "react";
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { ProfileVideos } from "@/components/profile/profile-videos";
+import { ProfileHighlights } from "@/components/profile/profile-highlights";
+import { ProfileMusicPlayer } from "@/components/profile/profile-music-player";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
 import type { Profile, Video } from "@/types";
@@ -62,14 +64,26 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4">
-      <ProfileHeader
-        profile={profile}
-        isOwn={isOwn}
-        isFollowing={isFollowing}
-        onFollow={handleFollow}
-        onUnfollow={handleFollow}
-      />
+    <div className="max-w-3xl mx-auto p-4 space-y-4">
+      <div className="relative">
+        <ProfileHeader
+          profile={profile}
+          isOwn={isOwn}
+          isFollowing={isFollowing}
+          onFollow={handleFollow}
+          onUnfollow={handleFollow}
+        />
+        {profile.profile_music_url && (
+          <ProfileMusicPlayer
+            url={profile.profile_music_url}
+            title={profile.profile_music_title}
+            artist={profile.profile_music_artist}
+          />
+        )}
+      </div>
+
+      <ProfileHighlights username={username} isOwn={isOwn} />
+
       <ProfileVideos videos={videos} username={username} />
     </div>
   );

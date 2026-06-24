@@ -3,9 +3,11 @@
 import { formatRelativeTime, formatFileSize } from "@/lib/utils/format";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils/cn";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { soundEffects } from "@/lib/utils/sounds";
 import { File, Mic, Image as ImageIcon, Video, Smile } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { getSocket } from "@/lib/socket/client";
 import Image from "next/image";
 import type { Message } from "@/types";
 
@@ -15,31 +17,68 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
-  const [reactions, setReactions] = useState<{ emoji: string; count: number; reacted: boolean }[]>([]);
+  const { profile } = useAuth();
   const [showPicker, setShowPicker] = useState(false);
+  const [transcription, setTranscription] = useState<string | null>(message.transcription || null);
+  const [transcribing, setTranscribing] = useState(false);
 
   const emojiOptions = ["👍", "❤️", "🔥", "😂", "🎉", "😢"];
 
-  const handleReact = (emoji: string) => {
-    soundEffects.playLike();
-    setReactions((prev) => {
-      const existing = prev.find((r) => r.emoji === emoji);
-      if (existing) {
-        if (existing.reacted) {
-          const updated = prev.map((r) =>
-            r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r
-          );
-          return updated.filter((r) => r.count > 0);
-        } else {
-          return prev.map((r) =>
-            r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r
-          );
-        }
-      } else {
-        return [...prev, { emoji, count: 1, reacted: true }];
+  const aggregatedReactions = useMemo(() => {
+    const raw = message.reactions || [];
+    const map: Record<string, { emoji: string; count: number; reacted: boolean }> = {};
+    for (const r of raw) {
+      if (!map[r.emoji]) {
+        map[r.emoji] = { emoji: r.emoji, count: 0, reacted: false };
       }
-    });
+      map[r.emoji].count += 1;
+      if (r.user_id === profile?.id) {
+        map[r.emoji].reacted = true;
+      }
+    }
+    return Object.values(map);
+  }, [message.reactions, profile?.id]);
+
+  const handleReact = async (emoji: string) => {
+    soundEffects.playLike();
     setShowPicker(false);
+    try {
+      const res = await fetch("/api/messages/react", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: message.id, emoji }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        getSocket().emit("message:react", {
+          chatId: message.chat_id,
+          messageId: message.id,
+          reactions: data.data,
+        });
+      }
+    } catch (err) {
+      console.error("Error reacting:", err);
+    }
+  };
+
+  const handleTranscribe = async () => {
+    soundEffects.playClick();
+    setTranscribing(true);
+    try {
+      const res = await fetch("/api/messages/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: message.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTranscription(data.data);
+      }
+    } catch (err) {
+      console.error("Transcribing error:", err);
+    } finally {
+      setTranscribing(false);
+    }
   };
 
   const renderContent = () => {
@@ -64,9 +103,26 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
 
       case "voice":
         return message.media_url ? (
-          <div className="flex items-center gap-2 min-w-[200px]">
-            <Mic className="w-4 h-4" />
-            <audio src={message.media_url} controls className="flex-1 h-8" />
+          <div className="space-y-2 min-w-[220px]">
+            <div className="flex items-center gap-2">
+              <Mic className="w-4 h-4 shrink-0 text-muted-foreground" />
+              <audio src={message.media_url} controls className="flex-1 h-8" />
+            </div>
+            <div className="pt-1.5 border-t border-white/5">
+              {transcription ? (
+                <p className="text-[11px] leading-relaxed italic text-muted-foreground bg-secondary/20 p-2 rounded-lg select-text select-all">
+                  {transcription}
+                </p>
+              ) : (
+                <button
+                  onClick={handleTranscribe}
+                  disabled={transcribing}
+                  className="text-[10px] text-primary hover:underline font-semibold flex items-center gap-1 select-none"
+                >
+                  {transcribing ? "Расшифровка..." : "📝 Расшифровать аудио"}
+                </button>
+              )}
+            </div>
           </div>
         ) : null;
 
@@ -135,9 +191,9 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
         </div>
 
         {/* Display Reactions */}
-        {reactions.length > 0 && (
+        {aggregatedReactions.length > 0 && (
           <div className={cn("flex flex-wrap gap-1 mt-1.5", isOwn ? "justify-end" : "justify-start")}>
-            {reactions.map((r) => (
+            {aggregatedReactions.map((r) => (
               <button
                 key={r.emoji}
                 onClick={() => handleReact(r.emoji)}

@@ -85,3 +85,9 @@ export function onNotification(callback: (notification: Notification) => void) {
   getSocket().on("notification:new", callback);
   return () => getSocket().off("notification:new", callback);
 }
+
+export function onMessageReaction(callback: (data: { messageId: string; reactions: { id?: string; message_id?: string; user_id: string; emoji: string }[] }) => void) {
+  getSocket().on("message:reaction_update", callback);
+  return () => getSocket().off("message:reaction_update", callback);
+}
+

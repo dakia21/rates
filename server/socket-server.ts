@@ -98,6 +98,10 @@ io.on("connection", async (socket) => {
     io.to(`chat:${message.chat_id}`).emit("message:new", message);
   });
 
+  socket.on("message:react", async ({ chatId, messageId, reactions }) => {
+    socket.to(`chat:${chatId}`).emit("message:reaction_update", { messageId, reactions });
+  });
+
   socket.on("notification:send", (notification) => {
     const targetSocketId = onlineUsers.get(notification.user_id);
     if (targetSocketId) {

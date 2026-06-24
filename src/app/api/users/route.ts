@@ -24,8 +24,8 @@ export async function GET(request: Request) {
 
   const { data: videos } = await supabase
     .from("videos")
-    .select("*")
-    .eq("user_id", profile.id)
+    .select("*, profile:profiles(*), co_author:profiles!co_author_id(*)")
+    .or(`user_id.eq.${profile.id},co_author_id.eq.${profile.id}`)
     .eq("is_public", true)
     .order("created_at", { ascending: false })
     .limit(30);

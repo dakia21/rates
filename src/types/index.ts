@@ -36,6 +36,11 @@ export interface Profile {
   last_seen: string;
   created_at: string;
   updated_at: string;
+  theme_accent?: string;
+  profile_music_url?: string | null;
+  profile_music_title?: string | null;
+  profile_music_artist?: string | null;
+  last_super_like_at?: string | null;
 }
 
 export interface Video {
@@ -59,6 +64,9 @@ export interface Video {
   is_liked?: boolean;
   is_reposted?: boolean;
   is_following?: boolean;
+  co_author_id?: string | null;
+  co_author?: Profile;
+  is_super_like?: boolean;
 }
 
 export interface VideoComment {
@@ -114,6 +122,8 @@ export interface Message {
   updated_at: string;
   sender?: Profile;
   reply_to?: Message;
+  reactions?: { id?: string; message_id?: string; user_id: string; emoji: string }[];
+  transcription?: string | null;
 }
 
 export interface Channel {
@@ -272,3 +282,54 @@ export interface Database {
     };
   };
 }
+
+export interface StoryHighlight {
+  id: string;
+  user_id: string;
+  title: string;
+  cover_url: string | null;
+  created_at: string;
+  items?: StoryHighlightItem[];
+}
+
+export interface StoryHighlightItem {
+  id: string;
+  highlight_id: string;
+  story_id: string;
+  created_at: string;
+  story?: Story;
+}
+
+export interface Story {
+  id: string;
+  user_id: string;
+  media_url: string;
+  caption: string;
+  created_at: string;
+  expires_at?: string;
+  is_close_friends?: boolean;
+  sticker_type?: string | null;
+  sticker_data?: any;
+  profile?: Profile;
+  views_count?: number;
+  viewers?: Profile[];
+  sticker_responses?: StoryStickerResponse[];
+}
+
+export interface StoryStickerResponse {
+  id: string;
+  story_id: string;
+  user_id: string;
+  response: string;
+  created_at: string;
+  profile?: Profile;
+}
+
+export interface CloseFriend {
+  id: string;
+  user_id: string;
+  friend_id: string;
+  created_at: string;
+  profile?: Profile;
+}
+

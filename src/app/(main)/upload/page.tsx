@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Upload, Video as VideoIcon, X, BarChart2, Heart, MessageSquare, Trash2, Play, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
@@ -35,6 +36,14 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Co-author state
+  const [coAuthor, setCoAuthor] = useState<any>(null);
+  const [coAuthorQuery, setCoAuthorQuery] = useState("");
+  const [coAuthorResults, setCoAuthorResults] = useState<any[]>([]);
+  const [searchingCoAuthor, setSearchingCoAuthor] = useState(false);
+  const [showCoAuthorDropdown, setShowCoAuthorDropdown] = useState(false);
+
 
   // Content studio state
   const [myVideos, setMyVideos] = useState<Video[]>([]);
@@ -100,6 +109,7 @@ export default function UploadPage() {
         thumbnail_url: thumbnailUrl,
         duration,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        co_author_id: coAuthor?.id || null,
       }),
     });
 
@@ -115,6 +125,8 @@ export default function UploadPage() {
       setTitle("");
       setDescription("");
       setTags("");
+      setCoAuthor(null);
+      setCoAuthorQuery("");
       setActiveTab("studio");
     } else {
       toast(data.error, "error");
@@ -346,6 +358,89 @@ export default function UploadPage() {
             onChange={(e) => setTags(e.target.value)}
             placeholder="тег1, тег2, тег3 (через запятую)"
           />
+
+          {/* Co-author selection */}
+          <div className="space-y-1.5 relative">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+              Соавтор публикации (Коллаборация)
+            </label>
+            {coAuthor ? (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-primary/10 border border-primary/25">
+                <div className="flex items-center gap-3">
+                  <Avatar src={coAuthor.avatar_url} size="sm" />
+                  <div>
+                    <p className="text-xs font-bold leading-none">{coAuthor.display_name}</p>
+                    <p className="text-[10px] text-muted-foreground">@{coAuthor.username}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoAuthor(null);
+                    setCoAuthorQuery("");
+                    soundEffects.playClick();
+                  }}
+                  className="text-xs text-destructive hover:underline font-medium"
+                >
+                  Удалить
+                </button>
+              </div>
+            ) : (
+              <div>
+                <input
+                  type="text"
+                  value={coAuthorQuery}
+                  onFocus={() => setShowCoAuthorDropdown(true)}
+                  onChange={(e) => {
+                    setCoAuthorQuery(e.target.value);
+                    setShowCoAuthorDropdown(true);
+                    if (e.target.value.trim().length >= 1) {
+                      setSearchingCoAuthor(true);
+                      fetch(`/api/search?q=${e.target.value}&type=users`)
+                        .then((r) => r.json())
+                        .then((d) => {
+                          if (d.success) setCoAuthorResults(d.data.users || []);
+                          setSearchingCoAuthor(false);
+                        });
+                    } else {
+                      setCoAuthorResults([]);
+                      setSearchingCoAuthor(false);
+                    }
+                  }}
+                  placeholder="Введите имя пользователя для совместного видео..."
+                  className="w-full rounded-xl border border-border/50 bg-secondary/25 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 text-foreground"
+                />
+
+                {showCoAuthorDropdown && coAuthorQuery.trim().length >= 1 && (
+                  <div className="absolute z-40 left-0 right-0 mt-1 bg-card border border-border/50 rounded-2xl shadow-xl max-h-[180px] overflow-y-auto p-1.5 space-y-1">
+                    {searchingCoAuthor ? (
+                      <div className="text-center text-xs text-muted-foreground py-4">Поиск...</div>
+                    ) : coAuthorResults.length === 0 ? (
+                      <div className="text-center text-xs text-muted-foreground py-4">Пользователи не найдены</div>
+                    ) : (
+                      coAuthorResults.map((u) => (
+                        <div
+                          key={u.id}
+                          onClick={() => {
+                            setCoAuthor(u);
+                            setShowCoAuthorDropdown(false);
+                            soundEffects.playClick();
+                          }}
+                          className="flex items-center gap-3 p-2 rounded-xl hover:bg-secondary cursor-pointer transition-colors"
+                        >
+                          <Avatar src={u.avatar_url} size="sm" />
+                          <div>
+                            <p className="text-xs font-bold leading-none">{u.display_name}</p>
+                            <p className="text-[10px] text-muted-foreground">@{u.username}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {uploading && (
             <div className="space-y-1.5">

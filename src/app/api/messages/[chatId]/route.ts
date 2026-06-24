@@ -33,7 +33,7 @@ export async function GET(
 
   let query = supabase
     .from("messages")
-    .select("*, sender:profiles!messages_sender_id_fkey(*)")
+    .select("*, sender:profiles!messages_sender_id_fkey(*), reactions:message_reactions(*)")
     .eq("chat_id", chatId)
     .order("created_at", { ascending: false })
     .limit(limit);

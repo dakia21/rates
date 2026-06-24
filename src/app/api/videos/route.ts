@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("videos")
-    .select("*, profile:profiles!videos_user_id_fkey(*)", { count: "exact" })
+    .select("*, profile:profiles!videos_user_id_fkey(*), co_author:profiles!co_author_id(*)", { count: "exact" })
     .eq("is_public", true)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   if (userId) {
     query = supabase
       .from("videos")
-      .select("*, profile:profiles!videos_user_id_fkey(*)", { count: "exact" })
+      .select("*, profile:profiles!videos_user_id_fkey(*), co_author:profiles!co_author_id(*)", { count: "exact" })
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -107,8 +107,9 @@ export async function POST(request: Request) {
       duration: body.duration || 0,
       tags: tags || [],
       is_public: is_public ?? true,
+      co_author_id: body.co_author_id || null,
     })
-    .select("*, profile:profiles!videos_user_id_fkey(*)")
+    .select("*, profile:profiles!videos_user_id_fkey(*), co_author:profiles!co_author_id(*)")
     .single();
 
   if (error) {

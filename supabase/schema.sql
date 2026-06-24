@@ -543,3 +543,30 @@ CREATE POLICY "Admins can view reports" ON reports FOR SELECT USING (
 -- CREATE POLICY "Users can upload avatars" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 -- CREATE POLICY "Users can update own avatars" ON storage.objects FOR UPDATE USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 -- CREATE POLICY "Users can delete own avatars" ON storage.objects FOR DELETE USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Stories
+CREATE TABLE IF NOT EXISTS public.stories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  media_url TEXT NOT NULL,
+  caption TEXT DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.stories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Stories are viewable by everyone" 
+  ON public.stories 
+  FOR SELECT 
+  USING (true);
+
+CREATE POLICY "Users can create stories" 
+  ON public.stories 
+  FOR INSERT 
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own stories" 
+  ON public.stories 
+  FOR DELETE 
+  USING (auth.uid() = user_id);
+

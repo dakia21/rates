@@ -8,7 +8,7 @@ import { MessageInput } from "./message-input";
 import { TypingIndicator } from "./typing-indicator";
 import { Avatar } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
-import { joinChat, leaveChat, onNewMessage, getSocket } from "@/lib/socket/client";
+import { joinChat, leaveChat, onNewMessage, onMessageReaction, getSocket } from "@/lib/socket/client";
 import { useAuth } from "@/contexts/auth-context";
 import { useSocket } from "@/contexts/socket-context";
 import { soundEffects } from "@/lib/utils/sounds";
@@ -66,9 +66,16 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
       }
     });
 
+    const unsubReactions = onMessageReaction(({ messageId, reactions }) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, reactions } : m))
+      );
+    });
+
     return () => {
       leaveChat(chatId);
       unsub();
+      unsubReactions();
     };
   }, [chatId, fetchMessages, profile?.id]);
 
