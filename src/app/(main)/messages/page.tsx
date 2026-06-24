@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import type { Chat } from "@/types";
 import { MessageCircle, Plus } from "lucide-react";
+import { onNewMessage } from "@/lib/socket/client";
 
 export default function MessagesPage() {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -27,6 +28,29 @@ export default function MessagesPage() {
 
   useEffect(() => {
     fetchChats();
+
+    const unsub = onNewMessage((msg) => {
+      setChats((prev) => {
+        const chatIdx = prev.findIndex((c) => c.id === msg.chat_id);
+        if (chatIdx === -1) {
+          fetchChats();
+          return prev;
+        }
+
+        const next = [...prev];
+        const chat = { ...next[chatIdx] };
+        chat.last_message = msg;
+        chat.last_message_at = msg.created_at;
+        chat.unread_count = (chat.unread_count ?? 0) + 1;
+
+        next.splice(chatIdx, 1);
+        return [chat, ...next];
+      });
+    });
+
+    return () => {
+      unsub();
+    };
   }, []);
 
   const handleCreateChat = async () => {

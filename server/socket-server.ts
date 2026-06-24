@@ -55,10 +55,27 @@ io.on("connection", async (socket) => {
 
   socket.on("chat:join", (chatId: string) => {
     socket.join(`chat:${chatId}`);
+    socket.data.chatId = chatId;
+    socket.to(`chat:${chatId}`).emit("chat:user_joined", { chatId, userId });
+
+    // Send back the list of active user IDs in this chat room
+    const clients = io.sockets.adapter.rooms.get(`chat:${chatId}`);
+    if (clients) {
+      const activeUserIds: string[] = [];
+      for (const clientId of clients) {
+        const clientSocket = io.sockets.sockets.get(clientId);
+        if (clientSocket && clientSocket.data.userId && clientSocket.data.userId !== userId) {
+          activeUserIds.push(clientSocket.data.userId);
+        }
+      }
+      socket.emit("chat:active_users", { chatId, activeUserIds });
+    }
   });
 
   socket.on("chat:leave", (chatId: string) => {
     socket.leave(`chat:${chatId}`);
+    socket.data.chatId = null;
+    socket.to(`chat:${chatId}`).emit("chat:user_left", { chatId, userId });
   });
 
   socket.on("typing:start", ({ chatId }: { chatId: string }) => {
@@ -118,6 +135,10 @@ io.on("connection", async (socket) => {
       .eq("id", userId);
 
     io.emit("user:offline", { userId });
+
+    if (socket.data.chatId) {
+      socket.to(`chat:${socket.data.chatId}`).emit("chat:user_left", { chatId: socket.data.chatId, userId });
+    }
 
     typingUsers.forEach((chatTyping, chatId) => {
       if (chatTyping.has(userId)) {

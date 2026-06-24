@@ -8,10 +8,12 @@ import { MessageInput } from "./message-input";
 import { TypingIndicator } from "./typing-indicator";
 import { Avatar } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
-import { joinChat, leaveChat, onNewMessage, onMessageReaction, getSocket } from "@/lib/socket/client";
+import { joinChat, leaveChat, onNewMessage, onMessageReaction, getSocket, onChatActiveUsers, onChatUserJoined, onChatUserLeft } from "@/lib/socket/client";
 import { useAuth } from "@/contexts/auth-context";
 import { useSocket } from "@/contexts/socket-context";
+import { useToast } from "@/components/ui/toast";
 import { soundEffects } from "@/lib/utils/sounds";
+import { formatNumber, formatRelativeTime } from "@/lib/utils/format";
 import type { Message, Chat } from "@/types";
 
 interface ChatWindowProps {
@@ -26,6 +28,7 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
   const { profile } = useAuth();
   const { typingUsers, onlineUsers } = useSocket();
   const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
+  const [activeUsers, setActiveUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const pinned = messages.find((m) => m.is_pinned);
@@ -72,10 +75,39 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
       );
     });
 
+    const unsubActiveList = onChatActiveUsers(({ chatId: cId, activeUserIds }) => {
+      if (cId === chatId) {
+        setActiveUsers(new Set(activeUserIds));
+      }
+    });
+
+    const unsubUserJoined = onChatUserJoined(({ chatId: cId, userId }) => {
+      if (cId === chatId) {
+        setActiveUsers((prev) => {
+          const next = new Set(prev);
+          next.add(userId);
+          return next;
+        });
+      }
+    });
+
+    const unsubUserLeft = onChatUserLeft(({ chatId: cId, userId }) => {
+      if (cId === chatId) {
+        setActiveUsers((prev) => {
+          const next = new Set(prev);
+          next.delete(userId);
+          return next;
+        });
+      }
+    });
+
     return () => {
       leaveChat(chatId);
       unsub();
       unsubReactions();
+      unsubActiveList();
+      unsubUserJoined();
+      unsubUserLeft();
     };
   }, [chatId, fetchMessages, profile?.id]);
 
@@ -109,7 +141,18 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
   const getOtherUser = () => chat?.participants?.find((p) => p.user_id !== profile?.id);
   const otherUser = getOtherUser();
   const isOnline = otherUser ? onlineUsers.has(otherUser.user_id) : false;
+  const isActiveInChat = otherUser ? activeUsers.has(otherUser.user_id) : false;
   const typing = typingUsers.get(chatId);
+
+  const getStatusText = () => {
+    if (typing && typing.size > 0) return "печатает...";
+    if (isActiveInChat) return "в чате";
+    if (isOnline) return "в сети";
+    if (otherUser?.profile?.last_seen) {
+      return `был(а) в сети ${formatRelativeTime(otherUser.profile.last_seen)}`;
+    }
+    return "не в сети";
+  };
 
   if (loading) {
     return (
@@ -129,7 +172,7 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
         <div className="flex-1 min-w-0">
           <h2 className="font-semibold truncate">{getChatName()}</h2>
           <p className="text-xs text-muted-foreground">
-            {typing && typing.size > 0 ? "печатает..." : isOnline ? "в сети" : "не в сети"}
+            {getStatusText()}
           </p>
         </div>
         <button className="btn-ghost p-2">

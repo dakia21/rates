@@ -7,7 +7,13 @@ let socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
+    let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+    if (typeof window !== "undefined") {
+      if (socketUrl.includes("localhost") && window.location.hostname !== "localhost") {
+        socketUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
+      }
+    }
+    socket = io(socketUrl, {
       autoConnect: false,
       transports: ["websocket", "polling"],
     });
@@ -89,5 +95,20 @@ export function onNotification(callback: (notification: Notification) => void) {
 export function onMessageReaction(callback: (data: { messageId: string; reactions: { id?: string; message_id?: string; user_id: string; emoji: string }[] }) => void) {
   getSocket().on("message:reaction_update", callback);
   return () => getSocket().off("message:reaction_update", callback);
+}
+
+export function onChatActiveUsers(callback: (data: { chatId: string; activeUserIds: string[] }) => void) {
+  getSocket().on("chat:active_users", callback);
+  return () => getSocket().off("chat:active_users", callback);
+}
+
+export function onChatUserJoined(callback: (data: { chatId: string; userId: string }) => void) {
+  getSocket().on("chat:user_joined", callback);
+  return () => getSocket().off("chat:user_joined", callback);
+}
+
+export function onChatUserLeft(callback: (data: { chatId: string; userId: string }) => void) {
+  getSocket().on("chat:user_left", callback);
+  return () => getSocket().off("chat:user_left", callback);
 }
 
