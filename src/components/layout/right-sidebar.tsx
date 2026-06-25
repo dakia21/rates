@@ -217,7 +217,7 @@ export function RightSidebar() {
   };
 
   return (
-    <aside className="hidden xl:flex flex-col w-[350px] h-screen sticky top-0 p-4 space-y-6 overflow-y-auto border-l border-border/40 bg-background/50 backdrop-blur-md">
+    <aside className="hidden xl:flex flex-col w-[300px] h-screen sticky top-0 p-3 space-y-4 overflow-y-auto border-l border-border/40 bg-background/50 backdrop-blur-md">
       
       {/* Widget: Who is online */}
       <div className="glass-card p-4 space-y-4">

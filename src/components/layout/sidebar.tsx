@@ -64,7 +64,7 @@ export function Sidebar() {
   }, [profile, pathname, newNotifications.length]);
 
   return (
-    <aside className="hidden lg:flex flex-col w-72 h-screen sticky top-0 border-r border-border/50 p-4 bg-background/30 backdrop-blur-md">
+    <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 border-r border-border/50 p-3 bg-background/30 backdrop-blur-md">
       <div
         onClick={() => {
           soundEffects.playClick();

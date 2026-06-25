@@ -11,6 +11,37 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/components/ui/toast";
 import { useTheme } from "@/contexts/theme-context";
 import { soundEffects } from "@/lib/utils/sounds";
+import { applyThemeColors } from "@/lib/utils/theme";
+
+const bgPresets = [
+  { name: "Deep Midnight", hex: "#0e0a17" },
+  { name: "Deep Ocean", hex: "#070f1a" },
+  { name: "Forest Emerald", hex: "#030f0a" },
+  { name: "Plum Wine", hex: "#13060c" },
+  { name: "Charcoal Gray", hex: "#15161c" },
+  { name: "Cyberpunk Dark", hex: "#050505" },
+  { name: "Snow White", hex: "#ffffff" },
+  { name: "Cool Gray", hex: "#f3f4f6" },
+  { name: "Cozy Sand", hex: "#faf7f0" },
+  { name: "Mint Cream", hex: "#f0fbf7" },
+  { name: "Sakura Dream", hex: "#fbf0f4" },
+  { name: "Lavender Mist", hex: "#f3f0fb" },
+];
+
+const accentPresets = [
+  { name: "Neon Purple", hex: "#7c3aed" },
+  { name: "Indigo Blue", hex: "#4f46e5" },
+  { name: "Electric Cyan", hex: "#06b6d4" },
+  { name: "Teal Green", hex: "#0d9488" },
+  { name: "Emerald Green", hex: "#10b981" },
+  { name: "Lime Green", hex: "#84cc16" },
+  { name: "Cyber Yellow", hex: "#facc15" },
+  { name: "Amber Gold", hex: "#f59e0b" },
+  { name: "Sunset Orange", hex: "#f97316" },
+  { name: "Crimson Red", hex: "#dc2626" },
+  { name: "Hot Pink", hex: "#db2777" },
+  { name: "Sakura Pink", hex: "#ec4899" },
+];
 
 export default function SettingsPage() {
   const { profile, updateProfile } = useAuth();
@@ -34,6 +65,8 @@ export default function SettingsPage() {
 
   const [saving, setSaving] = useState(false);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
+  const [customBg, setCustomBg] = useState("#0e0a17");
+  const [customPrimary, setCustomPrimary] = useState("#7c3aed");
   const avatarRef = useRef<HTMLInputElement>(null);
   const bannerRef = useRef<HTMLInputElement>(null);
 
@@ -44,13 +77,30 @@ export default function SettingsPage() {
     { id: "sakura", name: "Sakura Dream", bg: "#16080e", accent: "#ec4899" },
     { id: "cyberpunk", name: "Cyberpunk 2076", bg: "#050505", accent: "#facc15" },
     { id: "nordic", name: "Nordic Slate", bg: "#121822", accent: "#38bdf8" },
-  ] as const;
+    { id: "custom", name: "Свой стиль", bg: customBg, accent: customPrimary },
+  ];
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setSoundsEnabled(window.localStorage.getItem("rates_sounds_enabled") !== "false");
+      setCustomBg(window.localStorage.getItem("rates-custom-bg") || "#0e0a17");
+      setCustomPrimary(window.localStorage.getItem("rates-custom-primary") || "#7c3aed");
     }
   }, []);
+
+  const handleCustomBgChange = (hex: string) => {
+    setCustomBg(hex);
+    window.localStorage.setItem("rates-custom-bg", hex);
+    setTheme("custom");
+    applyThemeColors(hex, customPrimary);
+  };
+
+  const handleCustomPrimaryChange = (hex: string) => {
+    setCustomPrimary(hex);
+    window.localStorage.setItem("rates-custom-primary", hex);
+    setTheme("custom");
+    applyThemeColors(customBg, hex);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -189,7 +239,7 @@ export default function SettingsPage() {
                 <button
                   key={opt.id}
                   onClick={() => {
-                    setTheme(opt.id);
+                    setTheme(opt.id as any);
                     soundEffects.playClick();
                   }}
                   className={`relative flex flex-col items-start p-3 rounded-xl border text-left transition-all duration-300 ${
@@ -210,6 +260,83 @@ export default function SettingsPage() {
                   )}
                 </button>
               ))}
+            </div>
+
+            {/* Custom Theme Builder UI */}
+            <div className="pt-5 mt-5 border-t border-border/50 space-y-4">
+              <h3 className="font-semibold text-sm">Продвинутая кастомизация оформления</h3>
+              
+              <div className="space-y-4">
+                {/* Background Picker */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Цвет фона страницы ({customBg})</span>
+                    <label className="cursor-pointer text-primary text-xs hover:underline flex items-center gap-1.5 font-semibold">
+                      <span>Свой цвет</span>
+                      <input
+                        type="color"
+                        value={customBg}
+                        onChange={(e) => handleCustomBgChange(e.target.value)}
+                        className="w-4 h-4 rounded cursor-pointer border-0 p-0 overflow-hidden"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {bgPresets.map((preset) => (
+                      <button
+                        key={preset.hex}
+                        onClick={() => handleCustomBgChange(preset.hex)}
+                        className={`w-7 h-7 rounded-full border relative transition-all active:scale-95 ${
+                          customBg.toLowerCase() === preset.hex.toLowerCase() && theme === "custom"
+                            ? "border-primary scale-110 shadow-md shadow-primary/20"
+                            : "border-border hover:border-muted-foreground/40"
+                        }`}
+                        style={{ backgroundColor: preset.hex }}
+                        title={preset.name}
+                      >
+                        {customBg.toLowerCase() === preset.hex.toLowerCase() && theme === "custom" && (
+                          <span className="absolute inset-0.5 rounded-full border border-white/60" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Accent Picker */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Акцентный цвет кнопок ({customPrimary})</span>
+                    <label className="cursor-pointer text-primary text-xs hover:underline flex items-center gap-1.5 font-semibold">
+                      <span>Свой цвет</span>
+                      <input
+                        type="color"
+                        value={customPrimary}
+                        onChange={(e) => handleCustomPrimaryChange(e.target.value)}
+                        className="w-4 h-4 rounded cursor-pointer border-0 p-0 overflow-hidden"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {accentPresets.map((preset) => (
+                      <button
+                        key={preset.hex}
+                        onClick={() => handleCustomPrimaryChange(preset.hex)}
+                        className={`w-7 h-7 rounded-full border relative transition-all active:scale-95 ${
+                          customPrimary.toLowerCase() === preset.hex.toLowerCase() && theme === "custom"
+                            ? "border-primary scale-110 shadow-md shadow-primary/20"
+                            : "border-border hover:border-muted-foreground/40"
+                        }`}
+                        style={{ backgroundColor: preset.hex }}
+                        title={preset.name}
+                      >
+                        {customPrimary.toLowerCase() === preset.hex.toLowerCase() && theme === "custom" && (
+                          <span className="absolute inset-0.5 rounded-full border border-white/60" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

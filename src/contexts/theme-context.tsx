@@ -1,10 +1,11 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { applyThemeColors } from "@/lib/utils/theme";
 
-type Theme = "midnight" | "light" | "emerald" | "sakura" | "cyberpunk" | "nordic";
+type Theme = "midnight" | "light" | "emerald" | "sakura" | "cyberpunk" | "nordic" | "custom";
 
-const THEMES: Theme[] = ["midnight", "light", "emerald", "sakura", "cyberpunk", "nordic"];
+const THEMES: Theme[] = ["midnight", "light", "emerald", "sakura", "cyberpunk", "nordic", "custom"];
 
 interface ThemeContextType {
   theme: Theme;
@@ -33,9 +34,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     
     setThemeState(initial);
     const root = document.documentElement;
-    root.classList.remove("midnight", "light", "emerald", "sakura", "cyberpunk", "nordic");
+    root.classList.remove("midnight", "light", "emerald", "sakura", "cyberpunk", "nordic", "custom");
     root.classList.add(initial);
-    root.classList.toggle("dark", initial !== "light");
+    
+    if (initial === "custom") {
+      const bg = localStorage.getItem("rates-custom-bg");
+      const primary = localStorage.getItem("rates-custom-primary");
+      if (bg && primary) {
+        applyThemeColors(bg, primary);
+      }
+    } else {
+      root.classList.toggle("dark", initial !== "light");
+    }
 
     const handleDragStart = (e: DragEvent) => {
       e.preventDefault();
@@ -50,9 +60,34 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemeState(newTheme);
     localStorage.setItem("rates-theme", newTheme);
     const root = document.documentElement;
-    root.classList.remove("midnight", "light", "emerald", "sakura", "cyberpunk", "nordic");
+    root.classList.remove("midnight", "light", "emerald", "sakura", "cyberpunk", "nordic", "custom");
     root.classList.add(newTheme);
-    root.classList.toggle("dark", newTheme !== "light");
+
+    if (newTheme === "custom") {
+      const bg = localStorage.getItem("rates-custom-bg") || "#0e0a17";
+      const primary = localStorage.getItem("rates-custom-primary") || "#7c3aed";
+      applyThemeColors(bg, primary);
+      
+      // Custom theme is dark by default unless selected background is light
+      let cleanHex = bg.replace(/^#/, "");
+      if (cleanHex.length === 3) cleanHex = cleanHex.split("").map((c) => c + c).join("");
+      let r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+      let g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+      let b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+      let l = (Math.max(r, g, b) + Math.min(r, g, b)) / 2;
+      root.classList.toggle("dark", l <= 0.6);
+    } else {
+      // Remove overrides
+      const props = [
+        "--background", "--foreground", "--card", "--card-foreground",
+        "--primary", "--primary-foreground", "--secondary", "--secondary-foreground",
+        "--muted", "--muted-foreground", "--accent", "--accent-foreground",
+        "--border", "--ring", "--glass", "--glass-border",
+        "--gradient-start", "--gradient-end"
+      ];
+      props.forEach((p) => root.style.removeProperty(p));
+      root.classList.toggle("dark", newTheme !== "light");
+    }
   };
 
   const toggleTheme = () => {
