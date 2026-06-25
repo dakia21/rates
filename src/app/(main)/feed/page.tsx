@@ -16,6 +16,7 @@ import {
   Flame,
   TrendingUp,
   Play,
+  AlertTriangle,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/auth-context";
@@ -37,6 +38,62 @@ interface RecommendedUser {
   avatar: string;
 }
 
+function MarkdownText({ text }: { text: string }) {
+  const parts = text.split(/(```[\s\S]*?```)/g);
+
+  return (
+    <div className="space-y-1.5 select-text">
+      {parts.map((part, i) => {
+        if (part.startsWith("```") && part.endsWith("```")) {
+          const code = part.slice(3, -3).trim();
+          const lines = code.split("\n");
+          let displayCode = code;
+          if (lines.length > 0 && /^[a-zA-Z0-9_-]+$/.test(lines[0])) {
+            displayCode = lines.slice(1).join("\n");
+          }
+          return (
+            <pre key={i} className="bg-black/15 dark:bg-black/35 p-3 rounded-xl font-mono text-[11px] overflow-x-auto border border-border/20 my-2 select-text">
+              <code>{displayCode}</code>
+            </pre>
+          );
+        }
+
+        const lines = part.split("\n");
+        return (
+          <div key={i} className="space-y-1 select-text">
+            {lines.map((line, lineIdx) => {
+              const isBullet = line.trim().startsWith("* ") || line.trim().startsWith("- ");
+              let cleanLine = line;
+              if (isBullet) {
+                cleanLine = line.trim().substring(2);
+              }
+
+              const boldParts = cleanLine.split(/(\*\*.*?\*\*)/g);
+              const formattedLine = boldParts.map((boldPart, boldIdx) => {
+                if (boldPart.startsWith("**") && boldPart.endsWith("**")) {
+                  return <strong key={boldIdx} className="font-extrabold text-primary">{boldPart.slice(2, -2)}</strong>;
+                }
+                return boldPart;
+              });
+
+              if (isBullet) {
+                return (
+                  <div key={lineIdx} className="flex gap-2 pl-2 select-text">
+                    <span className="text-primary font-bold">•</span>
+                    <span className="flex-1">{formattedLine}</span>
+                  </div>
+                );
+              }
+
+              return <p key={lineIdx} className="min-h-[1em] leading-relaxed select-text">{formattedLine}</p>;
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function FeedPage() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<"posts" | "foryou" | "video" | "ai">("posts");
@@ -46,6 +103,7 @@ export default function FeedPage() {
   const [aiMessages, setAiMessages] = useState<AIMessage[]>([]);
   const [aiInput, setAiInput] = useState("");
   const [aiTyping, setAiTyping] = useState(false);
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [commentsVideoId, setCommentsVideoId] = useState<string | null>(null);
 
   // Load active tab from window search parameter (e.g. ?tab=video)
@@ -97,6 +155,19 @@ export default function FeedPage() {
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
+
+    async function checkApiKey() {
+      try {
+        const res = await fetch("/api/ai");
+        const data = await res.json();
+        if (data.success && !data.hasKey) {
+          setApiKeyMissing(true);
+        }
+      } catch (err) {
+        console.error("Error checking AI API status on mount:", err);
+      }
+    }
+    checkApiKey();
   }, []);
 
   // Load recommended users from Database
@@ -213,34 +284,80 @@ export default function FeedPage() {
     }
   };
 
-  const handleSendAIMessage = () => {
+  const handleSendAIMessage = async () => {
     if (!aiInput.trim()) return;
 
     soundEffects.playSent();
     const userMsg: AIMessage = {
       sender: "user",
-      text: aiInput,
+      text: aiInput.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setAiMessages((prev) => [...prev, userMsg]);
-    const inputVal = aiInput.toLowerCase();
+    const updatedMessages = [...aiMessages, userMsg];
+    setAiMessages(updatedMessages);
+    const inputVal = aiInput.trim();
+    const inputValLower = inputVal.toLowerCase();
     setAiInput("");
     setAiTyping(true);
 
+    if (apiKeyMissing) {
+      runMockResponse(inputValLower, true);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: updatedMessages }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        if (data.error === "API_KEY_MISSING") {
+          setApiKeyMissing(true);
+          runMockResponse(inputValLower, true);
+        } else {
+          throw new Error(data.error || "Ошибка запроса");
+        }
+        return;
+      }
+
+      const aiMsg: AIMessage = {
+        sender: "ai",
+        text: data.text,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setAiMessages((prev) => [...prev, aiMsg]);
+      setAiTyping(false);
+      soundEffects.playReceived();
+    } catch (err) {
+      console.error("AI Request Failed, running local fallback mode:", err);
+      runMockResponse(inputValLower, false);
+    }
+  };
+
+  const runMockResponse = (inputVal: string, showNotice = false) => {
     setTimeout(() => {
       let replyText = "";
 
       if (inputVal.includes("тренд") || inputVal.includes("актуальн") || inputVal.includes("hashtag")) {
-        replyText = "В трендах сейчас гремит #AI2026 и #RatesLaunch. Большинство постов посвящено нашему новому дизайну и встроенному звуковому синтезатору!";
+        replyText = "В трендах сейчас гремит **#AI2026** и **#RatesLaunch**. Большинство постов посвящено нашему новому дизайну и встроенному звуковому синтезатору!";
       } else if (inputVal.includes("тема") || inputVal.includes("цвет") || inputVal.includes("дизайн")) {
-        replyText = "У нас есть 6 премиум-тем оформления в 'Настройках': Midnight Neon, Classic Light, Emerald Oasis, Sakura Dream, Cyberpunk 2076 and Nordic Slate. Попробуй переключить их!";
+        replyText = "У нас есть 6 премиум-тем оформления в 'Настройках':\n* Midnight Neon\n* Classic Light\n* Emerald Oasis\n* Sakura Dream\n* Cyberpunk 2076\n* Nordic Slate\n\nПопробуй переключить их!";
       } else if (inputVal.includes("звук") || inputVal.includes("саунд")) {
         replyText = "Интерактивные звуки синтезируются прямо в браузере с помощью Web Audio API. Вы можете выключить или протестировать их на странице Настроек в разделе 'Внешний вид и звуки'.";
       } else if (inputVal.includes("привет") || inputVal.includes("здравствуй") || inputVal.includes("hello")) {
         replyText = "Привет! Рад тебя слышать. Надеюсь, тебе нравится обновленный дизайн Rates! Чем могу помочь?";
       } else {
         replyText = "Здорово! Я постоянно обучаюсь и помогаю улучшать Rates. Совсем скоро я смогу анализировать твои посты и давать персональные рекомендации!";
+      }
+
+      if (showNotice) {
+        replyText = "⚠️ **[Режим заглушек: GEMINI_API_KEY не настроен]**\n\n" + replyText;
       }
 
       const aiMsg: AIMessage = {
@@ -252,7 +369,7 @@ export default function FeedPage() {
       setAiMessages((prev) => [...prev, aiMsg]);
       setAiTyping(false);
       soundEffects.playReceived();
-    }, 1200);
+    }, 1000);
   };
 
   return (
@@ -519,6 +636,27 @@ export default function FeedPage() {
                 </div>
               </div>
 
+              {/* Warning notice when API key is missing */}
+              {apiKeyMissing && (
+                <div className="p-3.5 bg-yellow-500/10 border-b border-yellow-500/20 text-yellow-600 dark:text-yellow-300 text-xs space-y-2 select-text flex flex-col items-start shrink-0">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                    <span>Нейросетевой режим отключен (ключ не задан)</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    Чтобы активировать полноценную нейросеть Gemini, пропишите переменную <strong>GEMINI_API_KEY</strong> в файле <code>.env.local</code> и перезапустите сервер. Сейчас чат работает в демо-режиме.
+                  </p>
+                  <a
+                    href="https://aistudio.google.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-700 dark:text-yellow-200 font-bold px-3 py-1.5 rounded-xl transition-all text-[10px]"
+                  >
+                    Получить бесплатный ключ в Google AI Studio
+                  </a>
+                </div>
+              )}
+
               {/* Message log */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-hide">
                 {aiMessages.map((msg, idx) => (
@@ -529,11 +667,15 @@ export default function FeedPage() {
                     <div
                       className={`max-w-[80%] p-3.5 rounded-2xl text-sm leading-relaxed ${
                         msg.sender === "user"
-                          ? "bg-primary text-white rounded-tr-none shadow-md shadow-primary/10"
-                          : "bg-secondary/40 border border-border/40 text-foreground rounded-tl-none"
+                          ? "bg-primary text-white rounded-tr-none shadow-md shadow-primary/10 select-text"
+                          : "bg-secondary/40 border border-border/40 text-foreground rounded-tl-none select-text"
                       }`}
                     >
-                      <p className="select-text">{msg.text}</p>
+                      {msg.sender === "user" ? (
+                        <p className="select-text whitespace-pre-wrap">{msg.text}</p>
+                      ) : (
+                        <MarkdownText text={msg.text} />
+                      )}
                       <span className={`text-[9px] block text-right mt-1.5 ${msg.sender === "user" ? "text-white/70" : "text-muted-foreground"}`}>
                         {msg.time}
                       </span>
@@ -560,7 +702,7 @@ export default function FeedPage() {
                   value={aiInput}
                   onChange={(e) => setAiInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSendAIMessage()}
-                  placeholder="Спросите об актуальных темах, дизайне или звуках..."
+                  placeholder={apiKeyMissing ? "Спросите об актуальных темах, дизайне или звуках..." : "Спросите нейросеть о чем угодно..."}
                   className="flex-1 px-4 py-2.5 text-sm rounded-xl bg-background border border-border/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary placeholder:text-muted-foreground/60 transition-all"
                 />
                 <button
